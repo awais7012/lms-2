@@ -47,7 +47,7 @@ async def record_attendance(
     existing_record = await db.attendance.find_one({
         "course_id": ObjectId(attendance.course_id),
         "student_id": ObjectId(attendance.student_id),
-        "date": attendance.date
+        "date": attendance.date.isoformat()
     })
     
     if existing_record:
@@ -116,7 +116,7 @@ async def bulk_record_attendance(
         existing_record = await db.attendance.find_one({
             "course_id": ObjectId(attendance_data.course_id),
             "student_id": ObjectId(record["student_id"]),
-            "date": attendance_data.date
+            "date": attendance_data.date.isoformat()
         })
         
         if existing_record:
@@ -136,7 +136,7 @@ async def bulk_record_attendance(
             new_record = {
                 "course_id": ObjectId(attendance_data.course_id),
                 "student_id": ObjectId(record["student_id"]),
-                "date": attendance_data.date,
+                "date": attendance_data.date.isoformat(),
                 "status": record["status"],
                 "time": record.get("time"),
                 "note": record.get("note"),
@@ -177,7 +177,7 @@ async def get_course_attendance(
         try:
             start = datetime.fromisoformat(start_date).date()
             end = datetime.fromisoformat(end_date).date()
-            query["date"] = {"$gte": start, "$lte": end}
+            query["date"] = {"$gte": start.isoformat(), "$lte": end.isoformat()}
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

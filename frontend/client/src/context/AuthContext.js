@@ -171,7 +171,7 @@ export const AuthProvider = ({ children }) => {
             if (newAccessToken) {
               error.config.headers[
                 "Authorization"
-              ] =' Bearer ${newAccessToken}';
+              ] =` Bearer ${newAccessToken}`;
               return api(error.config);
             }
           } catch (refreshError) {

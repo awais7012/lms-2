@@ -99,18 +99,18 @@ const Courses = () => {
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-2">
-                  <button className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium">
+                  {/* <button className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium">
                     Continue Learning
-                  </button>
+                  </button> */}
                   <button
                     className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium"
                     onClick={() => handleViewMaterials(course._id)}
                   >
                     View Materials
                   </button>
-                  <button className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium">
+                  {/* <button className="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium">
                     Discussion Forum
-                  </button>
+                  </button> */}
                 </div>
               </motion.div>
             ))

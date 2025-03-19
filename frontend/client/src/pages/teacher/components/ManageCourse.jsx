@@ -76,7 +76,6 @@ const ManageCourse = () => {
 
   // Add this to your state declarations
   const [modules, setModules] = useState([]);
-  console.log("modules here", modules);
 
   const [materials, setMaterials] = useState([]);
 
@@ -86,7 +85,7 @@ const ManageCourse = () => {
       try {
         const token = localStorage.getItem("accessToken");
         const response = await axios.get(
-          `http://localhost:5000/api/courses/${courseId}/manage`,
+          `http://localhost:8000/api/courses/${courseId}/manage`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -95,9 +94,7 @@ const ManageCourse = () => {
         );
         setCourse(response.data.course);
         setModules(response.data.course.modules || []);
-        console.log(response.data.course.modules);
         setMaterials(response.data.course.materials || []);
-        console.log(response.data.course);
       } catch (error) {
         console.error("Error fetching course data:", error);
       } finally {
@@ -142,7 +139,7 @@ const ManageCourse = () => {
     try {
       const token = localStorage.getItem("accessToken");
       await axios.put(
-        `http://localhost:5000/api/courses/${courseId}/manage`,
+        `http://localhost:8000/api/courses/${courseId}/manage`,
         course,
         {
           headers: {
@@ -173,11 +170,9 @@ const ManageCourse = () => {
   // };
 
   const toggleModule = (moduleId) => {
-    console.log(moduleId);
     setModules(
       modules.map((module) => {
         if (module._id === moduleId) {
-          console.log(module.id); // Optional: Log the module ID if needed
           return { ...module, expanded: !module.expanded };
         } else {
           return module;
@@ -216,7 +211,6 @@ const ManageCourse = () => {
   };
 
   const openLessonModal = (moduleId) => {
-    console.log(moduleId);
     setCurrentModuleId(moduleId);
     setCurrentLessonId(null);
     setIsEditingLesson(false);
@@ -284,7 +278,7 @@ const ManageCourse = () => {
       }
 
       const response = await axios.post(
-        `http://localhost:5000/api/courses/${courseId}/modules/${currentModuleId}/lessons`,
+        `http://localhost:8000/api/courses/${courseId}/modules/${currentModuleId}/lessons`,
         formData,
         {
           headers: {
@@ -357,18 +351,26 @@ const ManageCourse = () => {
       alert("Module title is required");
       return;
     }
-
+  
     try {
       const token = localStorage.getItem("accessToken");
+      const formData = new FormData();
+      formData.append("title", newModule.title);
+      if (newModule.description) {
+        formData.append("description", newModule.description);
+      }
+  
       const response = await axios.post(
-        `http://localhost:5000/api/courses/${courseId}/modules`,
-        newModule,
+        `http://localhost:8000/api/courses/${courseId}/modules`,
+        formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
           },
         }
       );
+  
       setModules([...modules, response.data.module]);
       setNewModule({ title: "", description: "" });
       setIsModuleModalOpen(false);
@@ -377,6 +379,7 @@ const ManageCourse = () => {
       alert("Failed to add module.");
     }
   };
+  
 
   // Add this function to handle submitting the new material
   const submitNewMaterial = () => {
@@ -429,7 +432,7 @@ const ManageCourse = () => {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.delete(
-        `http://localhost:5000/api/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`,
+        `http://localhost:8000/api/courses/${courseId}/modules/${moduleId}/lessons/${lessonId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -458,8 +461,6 @@ const ManageCourse = () => {
       alert("Failed to delete lesson");
     }
   };
-
-  console.log(course);
 
   return (
     <div className="w-full">
@@ -652,7 +653,7 @@ const ManageCourse = () => {
                   {course.thumbnail ? (
                     <div className="mt-1 relative border border-gray-200 rounded-lg p-2">
                       <img
-                        src={`http://localhost:5000/${course.thumbnail}`}
+                        src={`http://localhost:8000/${course.thumbnail}`}
                         alt="Course thumbnail preview"
                         className="max-h-40 mx-auto"
                       />

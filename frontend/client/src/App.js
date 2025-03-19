@@ -32,6 +32,7 @@ import Notifications from "./pages/student/Notifications";
 import Support from "./pages/student/Support";
 import CourseMaterials from "./pages/student/CourseMaterials";
 import LogoutPage from './pages/LogoutPage';
+import StudentAssignments from "./pages/student/Assignments";
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
           <Route path="courses" element={<StudentCourses />} />
           <Route path="new-courses" element={<NewCourses />} />
           <Route path="progress" element={<Progress />} />
+          <Route path="assignments" element={<StudentAssignments />} />
           <Route path="certificates" element={<Certificates />} />
           <Route path="attendance" element={<StudentAttendance />} />
           <Route path="notifications" element={<Notifications />} />

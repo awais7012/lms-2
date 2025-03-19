@@ -26,6 +26,7 @@ const Assignments = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentAssignmentId, setCurrentAssignmentId] = useState(null);
   const [assignmentFile, setAssignmentFile] = useState(null);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   // State for new/edited assignment form
   const [newAssignment, setNewAssignment] = useState({
@@ -46,7 +47,7 @@ const Assignments = () => {
 
         // Fetch teacher's assignments
         const assignmentsResponse = await axios.get(
-          "http://localhost:5000/api/assignments/teacher",
+          `${BASE_URL}/api/assignments/teacher`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -56,7 +57,7 @@ const Assignments = () => {
 
         // Fetch teacher's courses for the dropdown
         const coursesResponse = await axios.get(
-          "http://localhost:5000/api/courses/teacher/courses",
+          `${BASE_URL}/api/courses/teacher/courses`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -182,7 +183,7 @@ const Assignments = () => {
       if (isEditing) {
         // Update existing assignment
         response = await axios.put(
-          `http://localhost:5000/api/assignments/${currentAssignmentId}`,
+          `${BASE_URL}/api/assignments/${currentAssignmentId}`,
           formData,
           {
             headers: {
@@ -203,7 +204,7 @@ const Assignments = () => {
       } else {
         // Create new assignment
         response = await axios.post(
-          "http://localhost:5000/api/assignments/create",
+          `${BASE_URL}/api/assignments/create`,
           formData,
           {
             headers: {
@@ -254,7 +255,7 @@ const Assignments = () => {
       try {
         const token = localStorage.getItem("accessToken");
 
-        await axios.delete(`http://localhost:5000/api/assignments/${id}`, {
+        await axios.delete(`${BASE_URL}/api/assignments/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -405,7 +406,7 @@ const Assignments = () => {
                             {getFileName(assignment.attachmentFile)}
                           </span>
                           <a
-                            href={`http://localhost:5000/${assignment.attachmentFile}`}
+                            href={`${BASE_URL}/${assignment.attachmentFile}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="ml-2 text-[#19a4db] hover:text-[#1582af]"
@@ -464,8 +465,8 @@ const Assignments = () => {
 
       {/* Assignment Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-xl w-full">
+         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-xl w-full max-h-screen overflow-auto">
             <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-medium">
                 {isEditing ? "Edit Assignment" : "Create New Assignment"}
@@ -596,7 +597,7 @@ const Assignments = () => {
                             <span className="text-sm">{getFileName(file)}</span>
                           </div>
                           <a
-                            href={`http://localhost:5000/${file}`}
+                            href={`${BASE_URL}/${file}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#19a4db] hover:text-[#1582af] mr-2"
@@ -626,7 +627,9 @@ const Assignments = () => {
               <button
                 type="button"
                 onClick={submitAssignment}
-                className="px-4 py-2 bg-[#19a4db] text-white rounded-lg flex items-center"
+                className={`px-4 py-2 text-white rounded-lg flex items-center ${
+                  isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-[#19a4db]"
+                }`}                
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

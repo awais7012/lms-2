@@ -1,260 +1,224 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  FiSearch,
-  FiFilter,
-  FiMail,
-  FiUserCheck,
-  FiUserX,
-  FiDownload,
-  FiMoreVertical,
-  FiX,
-} from "react-icons/fi";
+import { useState, useEffect } from "react"
+import axios from "axios"
+import { FiSearch, FiFilter, FiMail, FiMoreVertical, FiX, FiLoader, FiAlertCircle } from "react-icons/fi"
+
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000"
+
+// Create axios instance with auth header
+const api = axios.create({
+  baseURL: BASE_URL,
+})
+
+// Add request interceptor to include token in every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken")
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
 const Students = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState("all");
-  const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [emailMessage, setEmailMessage] = useState("");
-  const [courses, setCourses] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCourse, setSelectedCourse] = useState("all")
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [emailMessage, setEmailMessage] = useState("")
+  const [emailSubject, setEmailSubject] = useState("")
+  const [courses, setCourses] = useState([])
+  const [students, setStudents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   // Fetch teacher's courses
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const token = localStorage.getItem("accessToken");
-        const response = await axios.get(
-          "http://localhost:5000/api/courses/teacher/courses",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        setCourses(response.data.courses || []);
+    fetchCourses()
+  }, [])
 
-        // After fetching courses, fetch all students for all courses initially
-        if (response.data.courses && response.data.courses.length > 0) {
-          fetchStudentsForCourse("all");
-        } else {
-          setLoading(false);
-          // If no courses, use mock data as fallback
-          setStudents(mockStudents);
-        }
-      } catch (error) {
-        console.error("Error fetching courses:", error);
-        setLoading(false);
-        // If API fails, use mock data as fallback
-        setCourses([
-          { _id: 1, courseName: "Introduction to React" },
-          { _id: 2, courseName: "Advanced JavaScript" },
-          { _id: 3, courseName: "UX/UI Design Fundamentals" },
-        ]);
-        setStudents(mockStudents);
+  const fetchCourses = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch courses using the API
+      const response = await api.get("/api/courses/teacher/courses")
+      const coursesData = response.data.courses || []
+      setCourses(coursesData)
+
+      // After fetching courses, fetch all students for all courses initially
+      if (coursesData.length > 0) {
+        await fetchStudentsForCourse("all", coursesData)
+      } else {
+        setStudents([])
       }
-    };
-
-    fetchCourses();
-  }, []);
+    } catch (err) {
+      console.error("Error fetching courses:", err)
+      setError("Failed to load courses. Please try again later.")
+      setCourses([])
+      setStudents([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Fetch students for a specific course
-  const fetchStudentsForCourse = async (courseId) => {
-    setLoading(true);
+  const fetchStudentsForCourse = async (courseId, coursesData = courses) => {
+    setLoading(true)
+    setError(null)
+
     try {
       if (courseId === "all") {
         // Fetch students for all courses
-        const allStudentsPromises = courses.map((course) =>
-          axios.get(
-            `http://localhost:5000/api/courses/${course._id}/students`,
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-              },
-            }
-          )
-        );
+        const allStudentsPromises = coursesData.map((course) => api.get(`/api/courses/${course._id}/students`))
 
-        const responses = await Promise.all(allStudentsPromises);
+        const responses = await Promise.all(allStudentsPromises)
 
         // Combine and deduplicate students from all courses
-        const allStudents = [];
-        const studentIds = new Set();
+        const allStudents = []
+        const studentIds = new Set()
 
         responses.forEach((response, index) => {
-          const courseStudents = response.data.students || [];
+          const courseStudents = response.data.students || []
           courseStudents.forEach((student) => {
             if (!studentIds.has(student._id)) {
-              studentIds.add(student._id);
+              studentIds.add(student._id)
               // Add course information to the student
               student.courses = [
                 {
-                  id: courses[index]._id,
-                  name: courses[index].courseName,
+                  id: coursesData[index]._id,
+                  name: coursesData[index].courseName,
                 },
-              ];
-              allStudents.push(student);
+              ]
+              allStudents.push(student)
             } else {
               // Add this course to the existing student's courses
-              const existingStudent = allStudents.find(
-                (s) => s._id === student._id
-              );
+              const existingStudent = allStudents.find((s) => s._id === student._id)
               if (existingStudent) {
                 existingStudent.courses.push({
-                  id: courses[index]._id,
-                  name: courses[index].courseName,
-                });
+                  id: coursesData[index]._id,
+                  name: coursesData[index].courseName,
+                })
               }
             }
-          });
-        });
+          })
+        })
 
-        setStudents(allStudents);
+        setStudents(allStudents)
       } else {
         // Fetch students for a specific course
-        const response = await axios.get(
-          `http://localhost:5000/api/courses/${courseId}/students`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-            },
-          }
-        );
+        const response = await api.get(`/api/courses/${courseId}/students`)
 
         // Add course information to each student
-        const courseInfo = courses.find((c) => c._id === courseId);
-        const studentsWithCourse = (response.data.students || []).map(
-          (student) => ({
-            ...student,
-            courses: [
-              {
-                id: courseId,
-                name: courseInfo?.courseName || "Unknown Course",
-              },
-            ],
-          })
-        );
+        const courseInfo = coursesData.find((c) => c._id === courseId)
+        const studentsWithCourse = (response.data.students || []).map((student) => ({
+          ...student,
+          courses: [
+            {
+              id: courseId,
+              name: courseInfo?.courseName || "Unknown Course",
+            },
+          ],
+        }))
 
-        setStudents(studentsWithCourse);
+        setStudents(studentsWithCourse)
       }
-    } catch (error) {
-      console.error(`Error fetching students for course ${courseId}:`, error);
-      // If API fails, use mock data filtered by course
-      if (courseId === "all") {
-        setStudents(mockStudents);
-      } else {
-        setStudents(
-          mockStudents.filter((student) =>
-            student.courses.some((course) => course.id.toString() === courseId)
-          )
-        );
-      }
+    } catch (err) {
+      console.error(`Error fetching students for course ${courseId}:`, err)
+      setError(`Failed to load students for the selected course. Please try again later.`)
+      setStudents([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   // Handle course selection change
   const handleCourseChange = (e) => {
-    const courseId = e.target.value;
-    setSelectedCourse(courseId);
-    fetchStudentsForCourse(courseId);
-  };
-
-  // Mock student data - used as fallback if API fails
-  const mockStudents = [
-    {
-      _id: "ST-001",
-      username: "John Doe",
-      email: "john.doe@example.com",
-      courses: [
-        { id: 1, name: "Introduction to React" },
-        { id: 2, name: "Advanced JavaScript" },
-      ],
-      performance: 85,
-      attendance: 92,
-      status: "Active",
-    },
-    {
-      _id: "ST-002",
-      username: "Jane Smith",
-      email: "jane.smith@example.com",
-      courses: [{ id: 1, name: "Introduction to React" }],
-      performance: 76,
-      attendance: 85,
-      status: "Active",
-    },
-    {
-      _id: "ST-003",
-      username: "Michael Brown",
-      email: "michael.brown@example.com",
-      courses: [
-        { id: 2, name: "Advanced JavaScript" },
-        { id: 3, name: "UX/UI Design Fundamentals" },
-      ],
-      performance: 92,
-      attendance: 95,
-      status: "Active",
-    },
-    {
-      _id: "ST-004",
-      username: "Emily Wilson",
-      email: "emily.wilson@example.com",
-      courses: [
-        { id: 1, name: "Introduction to React" },
-        { id: 3, name: "UX/UI Design Fundamentals" },
-      ],
-      performance: 68,
-      attendance: 78,
-      status: "At Risk",
-    },
-    {
-      _id: "ST-005",
-      username: "David Chen",
-      email: "david.chen@example.com",
-      courses: [{ id: 2, name: "Advanced JavaScript" }],
-      performance: 90,
-      attendance: 88,
-      status: "Active",
-    },
-  ];
+    const courseId = e.target.value
+    setSelectedCourse(courseId)
+    fetchStudentsForCourse(courseId)
+  }
 
   // Filter students based on search
   const filteredStudents = students.filter((student) => {
     const matchesSearch =
       student.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student._id?.toLowerCase().includes(searchTerm.toLowerCase());
+      student._id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student.full_name && student.full_name.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    return matchesSearch;
-  });
+    return matchesSearch
+  })
 
   // Handle opening the email modal
   const handleOpenEmailModal = (student) => {
-    setSelectedStudent(student);
-    setEmailModalOpen(true);
-  };
+    setSelectedStudent(student)
+    setEmailModalOpen(true)
+    setEmailSubject("")
+    setEmailMessage("")
+  }
 
   // Handle sending the email
-  const handleSendEmail = (e) => {
-    e.preventDefault();
+  const handleSendEmail = async (e) => {
+    e.preventDefault()
 
-    // In a real app, you would call an API to send the email
-    console.log(
-      `Sending email to ${selectedStudent.username} (${selectedStudent.email})`
-    );
-    console.log(`Message: ${emailMessage}`);
+    try {
+      setSendingEmail(true)
 
-    // Show success message (in a real app, this would happen after API success)
-    alert(`Email sent to ${selectedStudent.username}`);
+      // In a real app, you would call an API to send the email
+      // For example:
+      // await api.post("/messages/send", {
+      //   recipient_id: selectedStudent._id,
+      //   subject: emailSubject,
+      //   message: emailMessage
+      // });
 
-    // Close modal and reset form
-    setEmailModalOpen(false);
-    setEmailMessage("");
-    setSelectedStudent(null);
-  };
+      // Simulate API call with timeout
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Show success message
+      alert(`Email sent to ${selectedStudent.username || selectedStudent.full_name}`)
+
+      // Close modal and reset form
+      setEmailModalOpen(false)
+      setEmailMessage("")
+      setEmailSubject("")
+      setSelectedStudent(null)
+    } catch (err) {
+      console.error("Error sending email:", err)
+      alert("Failed to send email. Please try again.")
+    } finally {
+      setSendingEmail(false)
+    }
+  }
+
+  // Get status color based on student status
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Active":
+        return "bg-green-100 text-green-800"
+      case "At Risk":
+        return "bg-yellow-100 text-yellow-800"
+      case "Inactive":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  // Get performance color based on score
+  const getPerformanceColor = (score) => {
+    if (score >= 80) return "bg-green-500"
+    if (score >= 70) return "bg-yellow-500"
+    return "bg-red-500"
+  }
+
+  // Get attendance color based on percentage
+  const getAttendanceColor = (percentage) => {
+    if (percentage >= 85) return "bg-green-500"
+    if (percentage >= 75) return "bg-yellow-500"
+    return "bg-red-500"
+  }
 
   return (
     <div className="space-y-6 w-full">
@@ -300,9 +264,27 @@ const Students = () => {
           </div>
         </div>
 
+        {/* Error message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <FiAlertCircle className="text-red-500 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <p className="text-red-700">{error}</p>
+                <button onClick={() => fetchCourses()} className="mt-2 text-sm text-red-700 underline">
+                  Try again
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#19a4db]"></div>
+            <div className="flex flex-col items-center">
+              <FiLoader className="animate-spin h-12 w-12 text-[#19a4db] mb-4" />
+              <p className="text-gray-500">Loading students data...</p>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -360,83 +342,53 @@ const Students = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 rounded-full bg-[#19a4db] flex items-center justify-center text-white font-medium">
-                            {student.username?.charAt(0) || "?"}
+                            {(student.full_name || student.username || "?").charAt(0)}
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {student.username || "Unknown"}
+                              {student.full_name || student.username || "Unknown"}
                             </div>
-                            <div className="text-sm text-gray-500">
-                              {student.email}
-                            </div>
+                            <div className="text-sm text-gray-500">{student.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {student._id}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student._id}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {student.courses?.map((course, idx) => (
                             <span key={idx} className="inline-block mr-1">
                               {course.name}
-                              {idx < (student.courses?.length || 0) - 1
-                                ? ","
-                                : ""}
+                              {idx < (student.courses?.length || 0) - 1 ? "," : ""}
                             </span>
                           ))}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {student.courses?.length || 0} total
-                        </div>
+                        <div className="text-sm text-gray-500">{student.courses?.length || 0} total</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="relative w-full max-w-[100px] h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
-                              className={`absolute left-0 h-full rounded-full ${
-                                (student.performance || 0) >= 80
-                                  ? "bg-green-500"
-                                  : (student.performance || 0) >= 70
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                              }`}
+                              className={`absolute left-0 h-full rounded-full ${getPerformanceColor(student.performance || 0)}`}
                               style={{ width: `${student.performance || 0}%` }}
                             ></div>
                           </div>
-                          <span className="ml-2 text-sm text-gray-600">
-                            {student.performance || 0}%
-                          </span>
+                          <span className="ml-2 text-sm text-gray-600">{student.performance || 0}%</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="relative w-full max-w-[100px] h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
-                              className={`absolute left-0 h-full rounded-full ${
-                                (student.attendance || 0) >= 85
-                                  ? "bg-green-500"
-                                  : (student.attendance || 0) >= 75
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500"
-                              }`}
+                              className={`absolute left-0 h-full rounded-full ${getAttendanceColor(student.attendance || 0)}`}
                               style={{ width: `${student.attendance || 0}%` }}
                             ></div>
                           </div>
-                          <span className="ml-2 text-sm text-gray-600">
-                            {student.attendance || 0}%
-                          </span>
+                          <span className="ml-2 text-sm text-gray-600">{student.attendance || 0}%</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`px-2 py-1 text-xs rounded-full font-medium ${
-                            student.status === "Active"
-                              ? "bg-green-100 text-green-800"
-                              : student.status === "At Risk"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
+                          className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(student.status || "Unknown")}`}
                         >
                           {student.status || "Unknown"}
                         </span>
@@ -446,10 +398,11 @@ const Students = () => {
                           <button
                             className="text-gray-400 hover:text-[#19a4db]"
                             onClick={() => handleOpenEmailModal(student)}
+                            title="Send Email"
                           >
                             <FiMail size={18} />
                           </button>
-                          <button className="text-gray-400 hover:text-[#19a4db]">
+                          <button className="text-gray-400 hover:text-[#19a4db]" title="More Options">
                             <FiMoreVertical size={18} />
                           </button>
                         </div>
@@ -458,11 +411,8 @@ const Students = () => {
                   ))
                 ) : (
                   <tr>
-                    <td
-                      colSpan="7"
-                      className="px-6 py-10 text-center text-gray-500"
-                    >
-                      No students found matching your search criteria.
+                    <td colSpan="7" className="px-6 py-10 text-center text-gray-500">
+                      {error ? "Error loading students data." : "No students found matching your search criteria."}
                     </td>
                   </tr>
                 )}
@@ -489,36 +439,30 @@ const Students = () => {
               <p className="text-sm text-gray-500">To:</p>
               <div className="flex items-center mt-1">
                 <div className="h-8 w-8 rounded-full bg-[#19a4db] flex items-center justify-center text-white font-medium text-sm">
-                  {selectedStudent.username?.charAt(0) || "?"}
+                  {(selectedStudent.full_name || selectedStudent.username || "?").charAt(0)}
                 </div>
                 <div className="ml-2">
-                  <p className="text-sm font-medium">
-                    {selectedStudent.username}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {selectedStudent.email}
-                  </p>
+                  <p className="text-sm font-medium">{selectedStudent.full_name || selectedStudent.username}</p>
+                  <p className="text-xs text-gray-500">{selectedStudent.email}</p>
                 </div>
               </div>
             </div>
 
             <form onSubmit={handleSendEmail}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subject
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                 <input
                   type="text"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#19a4db]"
                   placeholder="Enter email subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
                   required
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Message
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                 <textarea
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#19a4db] min-h-[120px]"
                   placeholder="Type your message here..."
@@ -533,14 +477,23 @@ const Students = () => {
                   type="button"
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm"
                   onClick={() => setEmailModalOpen(false)}
+                  disabled={sendingEmail}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#19a4db] text-white rounded-md text-sm"
+                  className="px-4 py-2 bg-[#19a4db] text-white rounded-md text-sm flex items-center"
+                  disabled={sendingEmail}
                 >
-                  Send Email
+                  {sendingEmail ? (
+                    <>
+                      <FiLoader className="animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Email"
+                  )}
                 </button>
               </div>
             </form>
@@ -548,7 +501,8 @@ const Students = () => {
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default Students;
+export default Students
+

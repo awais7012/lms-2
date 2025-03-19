@@ -54,7 +54,7 @@ const NewCourses = () => {
       if (error.response) {
         // Handle specific error responses from the server
         if (error.response.status === 400) {
-          toast.error("Already enrolled in this course.");
+          toast.error("Already enrolled or Course full");
         } else if (error.response.status === 404) {
           toast.error("Student not found.");
         } else {

@@ -162,7 +162,7 @@ async def enroll_in_course(request: posted ,current_user: User = Depends(get_cur
     if existing_enrollment:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Already enrolled in this course"
+            detail="Already Enrolled in this course"
         )
     
     # Check if course is full
@@ -358,14 +358,18 @@ async def create_module(
     )
     
     return {
-        "message": "Module created successfully",
-        "module": {
-            "_id": str(result.inserted_id),
-            **module_data,
-            "course_id": str(module_data["course_id"]),
-            "lessons": []
-        }
+    "message": "Module created successfully",
+    "module": {
+        "_id": str(result.inserted_id),
+        "course_id": str(module_data["course_id"]),
+        "title": module_data["title"],
+        "description": module_data["description"],
+        "order": module_data["order"],
+        "created_at": module_data["created_at"].isoformat(),  # Convert datetime to string
+        "lessons": []
     }
+}
+
 
 @router.post("/{course_id}/modules/{module_id}/lessons", response_model=dict)
 async def create_lesson(
@@ -437,13 +441,21 @@ async def create_lesson(
     result = await db.lessons.insert_one(lesson_data)
     
     return {
-        "message": "Lesson created successfully",
-        "lesson": {
-            "_id": str(result.inserted_id),
-            **lesson_data,
-            "module_id": str(lesson_data["module_id"])
-        }
+    "message": "Lesson created successfully",
+    "lesson": {
+        "_id": str(result.inserted_id),
+        "module_id": str(lesson_data["module_id"]),
+        "title": lesson_data["title"],
+        "description": lesson_data["description"],
+        "duration": lesson_data["duration"],
+        "materialType": lesson_data["materialType"],
+        "materialUrl": lesson_data["materialUrl"],
+        "materialFile": lesson_data["materialFile"],
+        "order": lesson_data["order"],
+        "created_at": lesson_data["created_at"].isoformat()  # Convert datetime to string
     }
+}
+
 
 @router.delete("/{course_id}/modules/{module_id}/lessons/{lesson_id}", response_model=dict)
 async def delete_lesson(
@@ -598,7 +610,7 @@ async def get_course_students(
             
             # Get assignment submissions
             assignments_cursor = db.assignments.find({"course": ObjectId(course_id)})
-            total_assignments = await assignments_cursor.count()
+            total_assignments = await db.assignments.count_documents({"course_id": ObjectId(course_id)})
             
             submissions_cursor = db.assignment_submissions.find({
                 "student_id": student["_id"],

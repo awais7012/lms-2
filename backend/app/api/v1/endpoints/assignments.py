@@ -75,15 +75,24 @@ async def create_assignment(
         
         await db.notifications.insert_one(notification_data)
     
-    return {
-        "message": "Assignment created successfully",
-        "assignment": {
-            "_id": str(result.inserted_id),
-            **assignment_data,
-            "course": str(assignment_data["course"]),
-            "teacher_id": str(assignment_data["teacher_id"])
-        }
+        assignment_id = str(result.inserted_id)
+
+        return {
+    "message": "Assignment created successfully",
+    "assignment": {
+        "_id": assignment_id,
+        "title": title,
+        "description": description,
+        "deadline": deadline_date.isoformat(),
+        "course": str(course["_id"]),
+        "courseName": courseName,
+        "teacher_id": str(current_user.id),
+        "attachmentFile": attachment_path,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat(),
     }
+}
+
 
 @router.get("/teacher", response_model=dict)
 async def get_teacher_assignments(current_user: User = Depends(get_current_teacher)) -> Any:
@@ -366,3 +375,34 @@ async def grade_assignment(
     
     return {"message": "Assignment graded successfully"}
 
+@router.get("/submissions/{assignment_id}", response_model=dict)
+async def get_submissions_by_assignment(
+    assignment_id: str,
+    current_user: User = Depends(get_current_teacher)
+) -> Any:
+    """
+    Get submissions for a specific assignment created by the current teacher.
+    """
+    assignment = await db.assignments.find_one({"_id": ObjectId(assignment_id)})
+    
+    if not assignment or assignment["teacher_id"] != ObjectId(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view these submissions"
+        )
+
+    submissions_list = []
+    cursor = db.assignment_submissions.find({"assignment_id": ObjectId(assignment_id)})
+
+    async for submission in cursor:
+        student = await db.users.find_one({"_id": submission["student_id"]})
+        
+        submissions_list.append({
+            "_id": str(submission["_id"]),
+            "studentName": student["username"],
+            "file": submission["submission_file"],
+            "assignment_id": str(submission["assignment_id"]),
+            "student_id": str(submission["student_id"])
+        })
+    
+    return {"submissions": submissions_list}

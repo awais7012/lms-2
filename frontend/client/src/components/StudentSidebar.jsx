@@ -1,14 +1,20 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  FiHome,
+  FiMessageSquare,
   FiBook,
-  FiCalendar,
   FiClock,
   FiBell,
   FiAward,
-  FiMessageSquare,
-  FiLogOut,
+  FiUsers,
+  FiClipboard,
   FiPlusCircle,
+  FiCalendar,
+  FiCheckSquare,
+  FiFileText,
+  FiSettings,
+  FiLogOut,
 } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext"; // Import useAuth for logout
 import { useNavigate } from "react-router-dom";
@@ -75,7 +81,7 @@ const StudentSidebar = () => {
             New Courses
           </Link>
 
-          <Link
+          {/* <Link
             to="/student-dashboard/progress"
             className={`flex items-center w-full px-4 py-3 text-sm rounded-lg ${
               isActive("/student-dashboard/progress")
@@ -85,7 +91,18 @@ const StudentSidebar = () => {
           >
             <FiClock className="mr-3 h-5 w-5" />
             Learning Progress
-          </Link>
+          </Link> */}
+          <Link
+                      to="/student-dashboard/assignments"
+                      className={`flex items-center w-full px-4 py-3 text-sm rounded-lg ${
+                        isActive("/student-dashboard/assignments")
+                          ? "bg-[#19a4db] text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <FiClipboard className="mr-3 h-5 w-5" />
+                      Assignments
+                    </Link>
 
           <Link
             to="/student-dashboard/certificates"

@@ -16,7 +16,7 @@ const CourseMaterials = () => {
       const fetchCourseDetails = async () => {
         try {
           const response = await axios.get(
-            `http://localhost:5000/api/courses/${courseId}/modules`,
+            `http://localhost:8000/api/courses/${courseId}/modules`,
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
@@ -30,7 +30,7 @@ const CourseMaterials = () => {
           const fetchModules = async () => {
             try {
               const response = await axios.get(
-                `http://localhost:5000/api/courses/${courseId}/modules`,
+                `http://localhost:8000/api/courses/${courseId}/modules`,
                 {
                   headers: {
                     Authorization: `Bearer ${localStorage.getItem(
@@ -132,6 +132,20 @@ const CourseMaterials = () => {
                         <span className="mr-2 text-gray-400">•</span>
                         <span>{lesson.title}</span>
                       </div>
+                        <span className="text-sm text-gray-500">
+                              {lesson.materialType === "link" ? (
+                                <a
+                                  href={lesson.materialUrl.startsWith("http") ? lesson.materialUrl : `https://${lesson.materialUrl}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-500 hover:underline"
+                                >
+                                  View now!
+                                </a>
+                              ) : (
+                                ""
+                              )}
+                            </span>
                       <span className="text-sm text-gray-500">
                         {lesson.duration}
                       </span>
