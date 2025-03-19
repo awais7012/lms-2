@@ -22,7 +22,7 @@ import Materials from "./pages/teacher/Materials";
 import Settings from "./pages/teacher/Settings";
 
 // Student Components
-// import StudentDashboard from "./pages/student/Dashboard";
+import StdDashboard from "./pages/student/Dashboard";
 import StudentCourses from "./pages/student/Courses";
 import NewCourses from "./pages/student/NewCourses";
 import Progress from "./pages/student/Progress";
@@ -55,7 +55,7 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={<StdDashboard />} />
           <Route path="courses" element={<StudentCourses />} />
           <Route path="new-courses" element={<NewCourses />} />
           <Route path="progress" element={<Progress />} />

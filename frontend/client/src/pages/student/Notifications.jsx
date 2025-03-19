@@ -1,57 +1,29 @@
-import React from "react";
-import { FiBell, FiClock, FiMail, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { FiBell, FiClock, FiMail, FiCheckCircle, FiAlertCircle, FiTrash } from "react-icons/fi";
+import axios from "axios";
 
 const Notifications = () => {
-  // Mock notifications data as an array so it can be iterated
-  const notifications = [
-    {
-      id: 1,
-      type: "assignment",
-      title: "Assignment Due",
-      message: "React Components assignment due tomorrow",
-      time: "2 hours ago",
-      read: false,
-      course: "Introduction to React"
-    },
-    {
-      id: 2,
-      type: "material",
-      title: "New Material Available",
-      message: "New lecture notes uploaded for JavaScript course",
-      time: "Yesterday",
-      read: false,
-      course: "Advanced JavaScript"
-    },
-    {
-      id: 3,
-      type: "announcement",
-      title: "Instructor Announcement",
-      message: "No class on Friday due to holiday",
-      time: "2 days ago",
-      read: true,
-      course: "UX/UI Design Fundamentals"
-    },
-    {
-      id: 4,
-      type: "grade",
-      title: "Assignment Graded",
-      message: "Your HTML Basics assignment has been graded",
-      time: "3 days ago",
-      read: true,
-      course: "Web Development Fundamentals"
-    },
-    {
-      id: 5,
-      type: "feedback",
-      title: "Instructor Feedback",
-      message: "You've received feedback on your project submission",
-      time: "5 days ago",
-      read: true,
-      course: "Project Management"
-    }
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
-  // Get the icon based on notification type
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await axios.get(`${BASE_URL}/api/notifications/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(response.data.notifications);
+      setUnreadCount(response.data.unread_count);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case "assignment":
@@ -69,8 +41,43 @@ const Notifications = () => {
     }
   };
 
-  // Count unread notifications
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const markAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.post(`${BASE_URL}/api/notifications/mark-read/${id}`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(notifications.map(n => n._id === id ? { ...n, read: true } : n));
+      setUnreadCount(unreadCount - 1);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.post(`${BASE_URL}/api/notifications/mark-all-read`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(notifications.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.delete(`${BASE_URL}/api/notifications/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications(notifications.filter(n => n._id !== id));
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -87,7 +94,7 @@ const Notifications = () => {
           </select>
           
           {unreadCount > 0 && (
-            <button className="text-blue-500 hover:text-blue-700 text-sm">
+            <button onClick={markAllAsRead} className="text-blue-500 hover:text-blue-700 text-sm">
               Mark all as read
             </button>
           )}
@@ -99,7 +106,7 @@ const Notifications = () => {
           <div className="divide-y divide-gray-100">
             {notifications.map((notification) => (
               <div 
-                key={notification.id} 
+                key={notification._id} 
                 className={`p-5 hover:bg-gray-50 transition-colors ${!notification.read ? 'bg-blue-50' : ''}`}
               >
                 <div className="flex items-start">
@@ -132,11 +139,11 @@ const Notifications = () => {
                   
                   <div className="ml-4 flex-shrink-0 flex space-x-2">
                     {!notification.read && (
-                      <button className="text-sm text-blue-500 hover:text-blue-700">
+                      <button onClick={() => markAsRead(notification._id)} className="text-sm text-blue-500 hover:text-blue-700">
                         Mark as read
                       </button>
                     )}
-                    <button className="text-sm text-gray-500 hover:text-gray-700">
+                    <button onClick={() => deleteNotification(notification._id)} className="text-sm text-gray-500 hover:text-gray-700">
                       Delete
                     </button>
                   </div>
@@ -145,19 +152,11 @@ const Notifications = () => {
             ))}
           </div>
         ) : (
-          <div className="p-12 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-400 mb-4">
-              <FiBell className="h-8 w-8" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900">No notifications</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              You're all caught up! Check back later for new notifications.
-            </p>
-          </div>
+          <p className="text-center py-6">No notifications found.</p>
         )}
       </div>
     </div>
   );
 };
 
-export default Notifications; 
+export default Notifications;

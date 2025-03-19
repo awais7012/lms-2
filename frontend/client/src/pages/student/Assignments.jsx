@@ -78,15 +78,26 @@ const Assignments = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Title</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Deadline</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Score</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {assignments.map((assignment) => (
+                  console.log(assignment),
                   <tr key={assignment._id}>
                     <td className="px-6 py-4">{assignment.title}</td>
                     <td className="px-6 py-4">{new Date(assignment.deadline).toLocaleDateString()}</td>
-                    <td className="px-6 py-4">{assignment.submitted ? "Submitted" : "Pending"}</td>
+                    <td className="px-6 py-4">
+                      {assignment.submitted
+                        ? assignment.submission.status === "Graded"
+                          ? "Graded"
+                          : "Submitted"
+                        : "Pending"}
+                    </td>
+                    <td className="px-6 py-4">
+                      {assignment.submission.status === "Graded" ? assignment.submission.score : "N/A"}
+                    </td>
                     <td className="px-6 py-4 flex space-x-2">
                       {assignment.submitted ? (
                         <FiCheckCircle className="text-green-500" size={20} />

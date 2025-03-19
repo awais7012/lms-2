@@ -38,6 +38,11 @@ const Assignments = () => {
     attachments: [],
   });
 
+  // Add new state for submissions and modal
+  const [submissions, setSubmissions] = useState([]);
+  const [isSubmissionsModalOpen, setIsSubmissionsModalOpen] = useState(false);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState(null);
+
   // Fetch assignments and courses when component mounts
   useEffect(() => {
     const fetchData = async () => {
@@ -279,6 +284,56 @@ const Assignments = () => {
     return filePath.split("/").pop();
   };
 
+  // Fetch submissions for a specific assignment
+  const fetchSubmissions = async (assignmentId) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await axios.get(
+        `${BASE_URL}/api/assignments/submissions/${assignmentId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setSubmissions(response.data.submissions || []);
+      setSelectedAssignmentId(assignmentId);
+      setIsSubmissionsModalOpen(true);
+    } catch (error) {
+      console.error("Error fetching submissions:", error);
+      alert("Failed to load submissions. Please try again.");
+    }
+  };
+
+  // Grade a submission
+  const gradeSubmission = async (studentId, score, feedback) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+  
+      const formData = new FormData();
+      formData.append("score", score);
+      if (feedback) formData.append("feedback", feedback);
+  
+      await axios.post(
+        `${BASE_URL}/api/assignments/${selectedAssignmentId}/grade/${studentId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+  
+      alert("Submission graded successfully!");
+      fetchSubmissions(selectedAssignmentId); // Refresh submissions
+    } catch (error) {
+      console.error("Error grading submission:", error);
+      alert("Failed to grade submission. Please try again.");
+    }
+  };
+  
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm p-6">
@@ -434,6 +489,12 @@ const Assignments = () => {
                         >
                           <FiTrash2 size={18} />
                         </button>
+                        <button
+                          onClick={() => fetchSubmissions(assignment._id)}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          View Submissions
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -465,7 +526,7 @@ const Assignments = () => {
 
       {/* Assignment Modal */}
       {isModalOpen && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-xl w-full max-h-screen overflow-auto">
             <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-medium">
@@ -629,7 +690,7 @@ const Assignments = () => {
                 onClick={submitAssignment}
                 className={`px-4 py-2 text-white rounded-lg flex items-center ${
                   isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-[#19a4db]"
-                }`}                
+                }`}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -643,6 +704,62 @@ const Assignments = () => {
                   "Create Assignment"
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submissions Modal */}
+      {isSubmissionsModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-xl w-full max-h-screen overflow-auto">
+            <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-medium">Submissions</h3>
+              <button
+                onClick={() => setIsSubmissionsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              {submissions.length > 0 ? (
+                <ul className="space-y-4">
+                  {submissions.map((submission) => (
+                    <li
+                      key={submission._id}
+                      className="flex justify-between items-center bg-gray-100 p-4 rounded-lg"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {submission.studentName}
+                        </p>
+                        <a
+                          href={`${BASE_URL}/${submission.file}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                          Download Submission
+                        </a>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const score = prompt("Enter score:");
+                          const feedback = prompt("Enter feedback:");
+                          if (score)
+                            gradeSubmission(submission.student_id, score, feedback);
+                        }}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm"
+                      >
+                        Grade
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No submissions found.</p>
+              )}
             </div>
           </div>
         </div>
