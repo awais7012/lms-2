@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from app.models.user import User
 from app.models.course import Course, CourseCreate, CourseUpdate, Module, Lesson, Enrollment
 from app.api.deps import get_current_teacher, get_current_student, get_current_user
@@ -8,6 +8,7 @@ from app.utils.file_upload import save_upload
 from bson import ObjectId
 import logging
 from datetime import datetime
+from pydantic import BaseModel,Field
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ async def create_course(
         "maxStudents": maxStudents,
         "difficulty": difficulty,
         "instructorName": instructorName,
-        "teacher_id": ObjectId(current_user.id),
+        "teacher_id": str(ObjectId(current_user.id)), 
         "thumbnail": thumbnail_path,
         "enrollmentStatus": "Open",
         "studentsEnrolled": 0,
@@ -136,15 +137,14 @@ async def get_enrolled_courses(current_user: User = Depends(get_current_student)
             courses.append(course)
     
     return {"courses": courses}
-
+class posted(BaseModel):
+    courseId:str
 @router.post("/enroll", response_model=dict)
-async def enroll_in_course(
-    courseId: str = Form(...),
-    current_user: User = Depends(get_current_student)
-) -> Any:
+async def enroll_in_course(request: posted ,current_user: User = Depends(get_current_student)):
     """
     Enroll student in a course.
     """
+    courseId = request.dict().get("courseId")
     # Check if course exists
     course = await db.courses.find_one({"_id": ObjectId(courseId)})
     if not course:
@@ -251,6 +251,17 @@ async def get_course_details(
     
     return {"course": course}
 
+class CourseUpdate(BaseModel):
+    courseName: Optional[str] = Field(None, title="Course Name")
+    courseCode: Optional[str] = Field(None, title="Course Code")
+    description: Optional[str] = Field(None, title="Course Description")
+    category: Optional[str] = Field(None, title="Category")
+    duration: Optional[int] = Field(None, title="Duration in hours")
+    price: Optional[float] = Field(None, title="Price")
+    maxStudents: Optional[int] = Field(None, title="Max Students")
+    difficulty: Optional[str] = Field(None, title="Difficulty Level")
+    instructorName: Optional[str] = Field(None, title="Instructor Name")
+
 @router.put("/{course_id}/manage", response_model=dict)
 async def update_course(
     course_id: str,
@@ -260,9 +271,15 @@ async def update_course(
     """
     Update course details (teacher only).
     """
+    # Validate course_id
+    try:
+        course_obj_id = ObjectId(course_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid course ID format")
+
     # Check if course exists and belongs to the teacher
     course = await db.courses.find_one({
-        "_id": ObjectId(course_id),
+        "_id": course_obj_id,
         "teacher_id": ObjectId(current_user.id)
     })
     
@@ -272,17 +289,25 @@ async def update_course(
             detail="Course not found or you don't have permission"
         )
     
-    # Update course
+    # Extract update data
     update_data = {k: v for k, v in course_update.dict(exclude_unset=True).items() if v is not None}
+    
+    # If no valid fields to update, return an error
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields provided for update")
+
     update_data["updated_at"] = datetime.utcnow()
     
-    await db.courses.update_one(
-        {"_id": ObjectId(course_id)},
+    # Perform update
+    result = await db.courses.update_one(
+        {"_id": course_obj_id},
         {"$set": update_data}
     )
-    
-    return {"message": "Course updated successfully"}
 
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="No changes made to the course")
+
+    return {"message": "Course updated successfully"}
 @router.post("/{course_id}/modules", response_model=dict)
 async def create_module(
     course_id: str,

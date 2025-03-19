@@ -17,6 +17,7 @@ const Courses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -24,7 +25,7 @@ const Courses = () => {
         const token = localStorage.getItem("accessToken");
 
         const response = await axios.get(
-          "http://localhost:5000/api/courses/teacher/courses",
+          `${BASE_URL}/api/courses/teacher/courses`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

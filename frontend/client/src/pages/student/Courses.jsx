@@ -7,6 +7,7 @@ const Courses = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   console.log("in course page");
   // Load courses data
@@ -14,7 +15,7 @@ const Courses = () => {
     const fetchEnrolledCourses = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/courses/enrolled",
+          `${BASE_URL}/api/courses/enrolled`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("accessToken")}`,

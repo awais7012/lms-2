@@ -5,6 +5,7 @@ import axios from "axios";
 const AddCourseModal = ({ isOpen, onClose, onSubmit }) => {
   const [courseImage, setCourseImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   // Form state
   const [courseForm, setCourseForm] = useState({
@@ -43,16 +44,24 @@ const AddCourseModal = ({ isOpen, onClose, onSubmit }) => {
     e.preventDefault();
     try {
       const formData = new FormData();
-      Object.keys(courseForm).forEach((key) => {
-        formData.append(key, courseForm[key]);
-      });
+      formData.append("courseName", courseForm.name);
+      formData.append("courseCode", courseForm.code);
+      formData.append("maxStudents", courseForm.maxStudents);
+      formData.append("price", courseForm.price);
+      formData.append("duration", courseForm.duration);
+      formData.append("difficulty", courseForm.difficultyLevel);
+      formData.append("category", courseForm.category);
+      formData.append("instructorName", courseForm.instructorName);
+      formData.append("description", courseForm.description);
+  
       if (courseImage) {
         formData.append("thumbnail", courseImage);
       }
+  
       const token = localStorage.getItem("accessToken");
-
+  
       const response = await axios.post(
-        "http://localhost:5000/api/courses/addCourse",
+        `${BASE_URL}/api/courses/addCourse`, // Ensure this matches your backend route
         formData,
         {
           headers: {
@@ -61,7 +70,7 @@ const AddCourseModal = ({ isOpen, onClose, onSubmit }) => {
           },
         }
       );
-
+  
       onSubmit(response.data.course);
       resetForm();
       window.location.reload();
@@ -69,7 +78,7 @@ const AddCourseModal = ({ isOpen, onClose, onSubmit }) => {
       console.error("Error adding course:", error);
     }
   };
-
+  
   const resetForm = () => {
     setCourseForm({
       name: "",

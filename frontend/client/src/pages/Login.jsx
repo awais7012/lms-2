@@ -251,47 +251,6 @@ const Login = () => {
                   )}
                 </div>
 
-                {/* Role Selection */}
-                <div>
-                  <p className="text-gray-700 mb-2">Login as</p>
-                  <div className="flex space-x-6">
-                    <div className="flex items-center">
-                      <input
-                        id="role-student"
-                        name="role"
-                        type="radio"
-                        value="student"
-                        checked={formData.role === "student"}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#19a4db] focus:ring-[#19a4db] border-gray-300"
-                      />
-                      <label
-                        htmlFor="role-student"
-                        className="ml-2 text-gray-700"
-                      >
-                        Student
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        id="role-teacher"
-                        name="role"
-                        type="radio"
-                        value="teacher"
-                        checked={formData.role === "teacher"}
-                        onChange={handleChange}
-                        className="h-4 w-4 text-[#19a4db] focus:ring-[#19a4db] border-gray-300"
-                      />
-                      <label
-                        htmlFor="role-teacher"
-                        className="ml-2 text-gray-700"
-                      >
-                        Teacher
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">

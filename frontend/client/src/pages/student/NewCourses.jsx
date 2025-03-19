@@ -8,12 +8,13 @@ const NewCourses = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [newCourses, setNewCourses] = useState([]);
+  const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:5000/api/courses/getallcourses",
+          `${BASE_URL}/api/courses/getallcourses`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
@@ -21,7 +22,6 @@ const NewCourses = () => {
           }
         );
         setNewCourses(response.data.courses);
-        console.log(response.data.courses);
       } catch (error) {
         toast.error("Failed to fetch courses");
       }
@@ -32,17 +32,20 @@ const NewCourses = () => {
 
   const handleEnrollCourse = async (courseId) => {
     setEnrollingCourseId(courseId);
+    console.log("Enrolling in course", courseId);
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/api/courses/enroll",
+        `${BASE_URL}/api/courses/enroll`,
         { courseId },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("accessToken")}`, // Assuming you store the access token in localStorage
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
           },
         }
       );
+      console.log(response);
 
       if (response.status === 200) {
         toast.success("Successfully enrolled in the course!");
