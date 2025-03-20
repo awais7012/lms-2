@@ -118,7 +118,8 @@ async def login(response: Response,form_data: OAuth2PasswordRequestForm = Depend
         "access_token": access_token,
         "token_type": "bearer",
         "user": user_data,
-        "role":user["role"]  # For compatibility with frontend
+        "role":user["role"],
+        "is_superuser": user["is_superuser"]
     }
 
 @router.post("/refresh-token")
