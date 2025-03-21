@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from app.models.user import User
 from app.models.course import Course, CourseCreate, CourseUpdate, Module, Lesson, Enrollment
-from app.api.deps import get_current_teacher, get_current_student, get_current_user
+from app.api.deps import get_current_teacher, get_current_student, get_current_user, get_current_superuser
 from app.db.mongodb import db
 from app.utils.file_upload import save_upload
 from bson import ObjectId
@@ -643,3 +643,19 @@ async def get_course_students(
     
     return {"students": students}
 
+@router.get("/admin", response_model=dict)
+async def get_cources(
+    current_user: User = Depends(get_current_superuser)
+) -> Any:
+    """
+    Get all courses created by the current teacher.
+    """
+    courses = []
+    cursor = db.courses.find()
+    total = await db.courses.count_documents({})
+    async for course in cursor:
+        course["_id"] = str(course["_id"])
+        course["teacher_id"] = str(course["teacher_id"])
+        courses.append(course)
+    
+    return {"total":total,"courses": courses}
