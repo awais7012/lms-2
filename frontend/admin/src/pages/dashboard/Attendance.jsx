@@ -1,59 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { FiSearch, FiDownload, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiPieChart } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FiSearch, FiFilter, FiDownload, FiCalendar, FiUsers, FiBook, FiCheckCircle, FiXCircle, FiAlertCircle, FiClock, FiPieChart } from 'react-icons/fi';
 
 const Attendance = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedCourse, setSelectedCourse] = useState('all');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [courses, setCourses] = useState([]);
-
-  useEffect(() => {
-    fetchCourses();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCourse !== 'all') {
-      fetchAttendance(selectedCourse, selectedDate);
+  
+  // Mock data for courses
+  const courses = [
+    { id: 'all', name: 'All Courses' },
+    { id: 'CRS-001', name: 'Introduction to React' },
+    { id: 'CRS-002', name: 'Advanced JavaScript' },
+    { id: 'CRS-003', name: 'UX/UI Design Fundamentals' },
+    { id: 'CRS-004', name: 'Python for Data Science' }
+  ];
+  
+  // Mock data for attendance records
+  const attendanceRecords = [
+    {
+      id: 'ATT-001',
+      studentId: 'STU-1001',
+      studentName: 'Rahul Kumar',
+      course: 'Introduction to React',
+      courseId: 'CRS-001',
+      date: '2023-06-12',
+      status: 'present',
+      arrivalTime: '09:55 AM'
+    },
+    {
+      id: 'ATT-002',
+      studentId: 'STU-1002',
+      studentName: 'Priya Sharma',
+      course: 'Introduction to React',
+      courseId: 'CRS-001',
+      date: '2023-06-12',
+      status: 'present',
+      arrivalTime: '10:05 AM'
+    },
+    {
+      id: 'ATT-003',
+      studentId: 'STU-1003',
+      studentName: 'Vikram Singh',
+      course: 'Introduction to React',
+      courseId: 'CRS-001',
+      date: '2023-06-12',
+      status: 'absent',
+      arrivalTime: null
+    },
+    {
+      id: 'ATT-004',
+      studentId: 'STU-1004',
+      studentName: 'Ananya Patel',
+      course: 'Introduction to React',
+      courseId: 'CRS-001',
+      date: '2023-06-12',
+      status: 'late',
+      arrivalTime: '10:20 AM'
+    },
+    {
+      id: 'ATT-005',
+      studentId: 'STU-1005',
+      studentName: 'Raj Malhotra',
+      course: 'Advanced JavaScript',
+      courseId: 'CRS-002',
+      date: '2023-06-12',
+      status: 'present',
+      arrivalTime: '09:50 AM'
+    },
+    {
+      id: 'ATT-006',
+      studentId: 'STU-1006',
+      studentName: 'Neha Gupta',
+      course: 'Advanced JavaScript',
+      courseId: 'CRS-002',
+      date: '2023-06-12',
+      status: 'excused',
+      arrivalTime: null
+    },
+    {
+      id: 'ATT-007',
+      studentId: 'STU-1007',
+      studentName: 'Aditya Kumar',
+      course: 'Advanced JavaScript',
+      courseId: 'CRS-002',
+      date: '2023-06-12',
+      status: 'present',
+      arrivalTime: '09:45 AM'
     }
-  }, [selectedCourse, selectedDate]);
-
-  const fetchCourses = async () => {
-    try {
-      const response = await fetch('/courses/teacher/courses');
-      const data = await response.json();
-      setCourses([{ id: 'all', name: 'All Courses' }, ...data.courses]);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-    }
+  ];
+  
+  // Calculate attendance statistics
+  const calculateStats = (records) => {
+    const filteredRecords = records.filter(record => 
+      (selectedCourse === 'all' || record.courseId === selectedCourse)
+    );
+    
+    const total = filteredRecords.length;
+    const present = filteredRecords.filter(r => r.status === 'present').length;
+    const absent = filteredRecords.filter(r => r.status === 'absent').length;
+    const late = filteredRecords.filter(r => r.status === 'late').length;
+    const excused = filteredRecords.filter(r => r.status === 'excused').length;
+    
+    return {
+      total,
+      present,
+      absent,
+      late,
+      excused,
+      presentRate: total > 0 ? Math.round((present / total) * 100) : 0,
+      absentRate: total > 0 ? Math.round((absent / total) * 100) : 0,
+      lateRate: total > 0 ? Math.round((late / total) * 100) : 0,
+      excusedRate: total > 0 ? Math.round((excused / total) * 100) : 0
+    };
   };
-
-  const fetchAttendance = async (courseId, date) => {
-    try {
-      const response = await fetch(`/attendance/course/${courseId}?start_date=${date}&end_date=${date}`);
-      const data = await response.json();
-      setAttendanceRecords(data.attendance_records || []);
-    } catch (error) {
-      console.error('Error fetching attendance:', error);
-    }
-  };
-
-  const stats = {
-    presentRate: 0,
-    absentRate: 0,
-    lateRate: 0,
-    excusedRate: 0,
-    present: 0,
-    absent: 0,
-    late: 0,
-    excused: 0
-  };
-
-  const filteredRecords = attendanceRecords;
-
+  
+  // Get filtered records based on search term and selected course
+  const filteredRecords = attendanceRecords.filter(record => {
+    const matchesCourse = selectedCourse === 'all' || record.courseId === selectedCourse;
+    const matchesSearch = 
+      record.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.course.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCourse && matchesSearch;
+  });
+  
+  // Calculate stats for the filtered records
+  const stats = calculateStats(attendanceRecords);
+  
+  // Status icon components
   const getStatusIcon = (status) => {
-    switch (status) {
+    switch(status) {
       case 'present':
         return <FiCheckCircle className="text-green-500" />;
       case 'absent':
@@ -66,10 +142,12 @@ const Attendance = () => {
         return null;
     }
   };
-
+  
+  // Handler functions
   const handleExportData = () => {
-    alert('Export functionality not implemented yet.');
+    alert('Export attendance data functionality will be implemented here');
   };
+  
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Attendance & Evaluations</h1>

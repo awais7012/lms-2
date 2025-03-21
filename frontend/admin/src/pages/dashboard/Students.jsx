@@ -2,106 +2,159 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   FiSearch,
+  FiFilter,
+  FiUserPlus,
   FiUserCheck,
   FiUserX,
   FiMail,
-  FiEye,
-  FiUserPlus,
   FiDownload,
-  FiFilter,
+  FiEye,
   FiCalendar,
-  FiAlertCircle
+  FiAlertCircle,
 } from "react-icons/fi";
 
 const Students = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(false);
 
+  // Fetch students data
   useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(
+          "http://localhost:5000/api/adminRoutes/students",
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+            },
+          }
+        );
+        setStudents(response.data.students);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching students:", error);
+        setLoading(false);
+      }
+    };
+
     fetchStudents();
   }, []);
 
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await axios.get("/students", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setStudents(response.data.students || []);
-    } catch (error) {
-      console.error("Error fetching students:", error);
-    } finally {
-      setLoading(false);
+  // Filter students based on approval status
+  const getPendingStudents = () => {
+    return students.filter(
+      (student) => !student.isApproved && !student.isRejected
+    );
+  };
+
+  const getApprovedStudents = () => {
+    return students.filter((student) => student.isApproved);
+  };
+
+  const getRejectedStudents = () => {
+    return students.filter((student) => student.isRejected);
+  };
+
+  const getFilteredStudents = () => {
+    let filteredStudents = [];
+
+    if (activeTab === "pending") {
+      filteredStudents = getPendingStudents();
+    } else if (activeTab === "approved") {
+      filteredStudents = getApprovedStudents();
+    } else if (activeTab === "rejected") {
+      filteredStudents = getRejectedStudents();
+    } else {
+      filteredStudents = students;
     }
+
+    if (searchTerm) {
+      return filteredStudents.filter(
+        (student) =>
+          student.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          student._id.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    return filteredStudents;
   };
 
   const handleApprove = async (studentId) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `/students/${studentId}/status`,
+      const response = await axios.put(
+        `http://localhost:5000/api/adminRoutes/students/${studentId}/status`,
         { action: "approve" },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          },
+        }
       );
-      setStudents((prev) =>
-        prev.map((student) =>
-          student._id === studentId ? { ...student, isApproved: true } : student
+
+      // Update the local state
+      setStudents((prevStudents) =>
+        prevStudents.map((student) =>
+          student._id === studentId
+            ? { ...student, isApproved: true, isRejected: false }
+            : student
         )
       );
+
+      alert(`Student ${studentId} approved successfully`);
     } catch (error) {
       console.error("Error approving student:", error);
+      alert("Failed to approve student");
     }
   };
 
   const handleReject = async (studentId) => {
     try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `/students/${studentId}/status`,
+      const response = await axios.put(
+        `http://localhost:5000/api/adminRoutes/students/${studentId}/status`,
         { action: "reject" },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+          },
+        }
       );
-      setStudents((prev) =>
-        prev.map((student) =>
-          student._id === studentId ? { ...student, isRejected: true } : student
+
+      // Update the local state
+      setStudents((prevStudents) =>
+        prevStudents.map((student) =>
+          student._id === studentId
+            ? { ...student, isApproved: false, isRejected: true }
+            : student
         )
       );
+
+      alert(`Student ${studentId} rejected`);
     } catch (error) {
       console.error("Error rejecting student:", error);
+      alert("Failed to reject student");
     }
   };
 
-  const getPendingStudents = () => {
-    return students.filter((s) => !s.isApproved && !s.isRejected);
+  const handleView = (studentId) => {
+    // In a real app, you would navigate to the student details page
+    console.log(`Viewing student ${studentId}`);
   };
 
-  const getApprovedStudents = () => {
-    return students.filter((s) => s.isApproved);
-  };
-
-  const getRejectedStudents = () => {
-    return students.filter((s) => s.isRejected);
+  const handleContact = (studentEmail) => {
+    // In a real app, you would open a contact form or mail client
+    console.log(`Contacting student at ${studentEmail}`);
   };
 
   const handleFilterToggle = () => {
     setFilterOpen(!filterOpen);
   };
 
-  const handleView = (studentId) => {
-    console.log(`Viewing student ${studentId}`);
-  };
-
-  const handleContact = (studentEmail) => {
-    console.log(`Contacting student at ${studentEmail}`);
-  };
-
-  const filteredStudents = students.filter((s) =>
-    s.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = getFilteredStudents();
 
   return (
     <div>

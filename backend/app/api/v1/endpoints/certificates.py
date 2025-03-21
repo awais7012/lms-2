@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from app.models.user import User
 from app.models.certificate import Certificate, CertificateCreate, StudentCertificate
-from app.api.deps import get_current_teacher, get_current_student, get_current_user
+from app.api.deps import get_current_teacher, get_current_student, get_current_user, get_current_superuser
 from app.db.mongodb import db
 from app.utils.file_upload import save_upload
 from app.utils.certificate_generator import generate_certificate
@@ -293,3 +293,17 @@ async def get_course_certificates(
         "issued_certificates": certificates
     }
 
+@router.get("/admin", response_model=dict)
+def get_all_certificates(current_user: Any = Depends(get_current_superuser)) -> Any:
+    total = db.student_certificates.count_documents({})
+    cursor = db.student_certificates.find({})
+    
+    certificates = []
+    for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["certificate_id"] = str(doc["certificate_id"])
+        doc["student_id"] = str(doc["student_id"])
+        doc["course_id"] = str(doc["course_id"])
+        certificates.append(doc)
+
+    return {"total": total, "certificates": certificates}

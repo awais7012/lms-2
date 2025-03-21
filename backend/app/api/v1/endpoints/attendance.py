@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from app.models.user import User
 from app.models.attendance import AttendanceRecord, AttendanceCreate, AttendanceUpdate, AttendanceBulkCreate
-from app.api.deps import get_current_teacher, get_current_student
+from app.api.deps import get_current_teacher, get_current_student, get_current_superuser
 from app.db.mongodb import db
 from bson import ObjectId
 import logging
@@ -255,3 +255,27 @@ async def get_student_attendance(
         }
     }
 
+@router.get("/admin/all", response_model=dict)
+async def get_all_attendance_records(
+    current_user: User = Depends(get_current_superuser)
+) -> Any:
+    """
+    Get all attendance records (admin only).
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only superusers can access this data"
+        )
+
+    records = []
+    cursor = db.attendance.find({})
+
+    async for record in cursor:
+        record["_id"] = str(record["_id"])
+        record["course_id"] = str(record["course_id"])
+        record["student_id"] = str(record["student_id"])
+        record["recorded_by"] = str(record["recorded_by"])
+        records.append(record)
+
+    return {"attendance_records": records}

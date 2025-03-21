@@ -647,9 +647,6 @@ async def get_course_students(
 async def get_cources(
     current_user: User = Depends(get_current_superuser)
 ) -> Any:
-    """
-    Get all courses created by the current teacher.
-    """
     courses = []
     cursor = db.courses.find()
     total = await db.courses.count_documents({})

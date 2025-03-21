@@ -3,7 +3,7 @@ import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api/auth",
+  baseURL: "http://localhost:5000/api/adminRoutes",
   withCredentials: true,
 });
 
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   const decodeToken = (token) => {
     try {
       const decoded = jwtDecode(token);
-      return { id: decoded.id, email: decoded.email, is_superuser: decoded.is_superuser };
+      return { id: decoded.id, email: decoded.email };
     } catch (error) {
       console.error("Error decoding token:", error);
       return null;
@@ -29,34 +29,26 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const formData = new URLSearchParams();
-      formData.append("username", email); // OAuth2 expects "username" instead of "email"
-      formData.append("password", password);
-  
-      const res = await api.post("/login", formData, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      });
-  
-      console.log("Login Response:", res.data);
-  
-      if (!res.data.is_superuser) {
-        throw new Error("Unauthorized: Only superusers can access");
-      }
-  
-      const token = res.data.access_token;
+      const res = await api.post("/login", { email, password });
+
+      const token = res.data.accessToken;
       localStorage.setItem("accessToken", token);
       setAccessToken(token);
-  
+
       const decodedUser = decodeToken(token);
       setUser(decodedUser);
       localStorage.setItem("user", JSON.stringify(decodedUser));
       localStorage.setItem("adminToken", res.data.accessToken);
     } catch (error) {
-      console.error("Login error:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || "Invalid credentials or server error");
+      console.error(
+        "Login error:",
+        error.response?.data?.message || error.message
+      );
+      throw new Error(
+        error.response?.data?.message || "Invalid credentials or server error"
+      );
     }
   };
-  
 
   const logout = async () => {
     try {
@@ -95,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Axios interceptor to refresh token on 401 errors
   useEffect(() => {
     const interceptor = api.interceptors.response.use(
       (response) => response,
@@ -120,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     return () => api.interceptors.response.eject(interceptor);
   }, []);
 
+  // Auto-refresh token on app load (only if a user exists)
   useEffect(() => {
     const fetchToken = async () => {
       if (localStorage.getItem("user")) {
