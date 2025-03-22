@@ -1,157 +1,292 @@
-import React, { useState } from 'react';
-import { FiSearch, FiFilter, FiDownload, FiCalendar, FiUsers, FiBook, FiCheckCircle, FiXCircle, FiAlertCircle, FiClock, FiPieChart } from 'react-icons/fi';
+"use client"
+
+import axios from "axios"
+import { useState, useEffect } from "react"
+import { FiSearch, FiDownload, FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiPieChart } from "react-icons/fi"
 
 const Attendance = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [selectedCourse, setSelectedCourse] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // Mock data for courses
-  const courses = [
-    { id: 'all', name: 'All Courses' },
-    { id: 'CRS-001', name: 'Introduction to React' },
-    { id: 'CRS-002', name: 'Advanced JavaScript' },
-    { id: 'CRS-003', name: 'UX/UI Design Fundamentals' },
-    { id: 'CRS-004', name: 'Python for Data Science' }
-  ];
-  
-  // Mock data for attendance records
-  const attendanceRecords = [
-    {
-      id: 'ATT-001',
-      studentId: 'STU-1001',
-      studentName: 'Rahul Kumar',
-      course: 'Introduction to React',
-      courseId: 'CRS-001',
-      date: '2023-06-12',
-      status: 'present',
-      arrivalTime: '09:55 AM'
-    },
-    {
-      id: 'ATT-002',
-      studentId: 'STU-1002',
-      studentName: 'Priya Sharma',
-      course: 'Introduction to React',
-      courseId: 'CRS-001',
-      date: '2023-06-12',
-      status: 'present',
-      arrivalTime: '10:05 AM'
-    },
-    {
-      id: 'ATT-003',
-      studentId: 'STU-1003',
-      studentName: 'Vikram Singh',
-      course: 'Introduction to React',
-      courseId: 'CRS-001',
-      date: '2023-06-12',
-      status: 'absent',
-      arrivalTime: null
-    },
-    {
-      id: 'ATT-004',
-      studentId: 'STU-1004',
-      studentName: 'Ananya Patel',
-      course: 'Introduction to React',
-      courseId: 'CRS-001',
-      date: '2023-06-12',
-      status: 'late',
-      arrivalTime: '10:20 AM'
-    },
-    {
-      id: 'ATT-005',
-      studentId: 'STU-1005',
-      studentName: 'Raj Malhotra',
-      course: 'Advanced JavaScript',
-      courseId: 'CRS-002',
-      date: '2023-06-12',
-      status: 'present',
-      arrivalTime: '09:50 AM'
-    },
-    {
-      id: 'ATT-006',
-      studentId: 'STU-1006',
-      studentName: 'Neha Gupta',
-      course: 'Advanced JavaScript',
-      courseId: 'CRS-002',
-      date: '2023-06-12',
-      status: 'excused',
-      arrivalTime: null
-    },
-    {
-      id: 'ATT-007',
-      studentId: 'STU-1007',
-      studentName: 'Aditya Kumar',
-      course: 'Advanced JavaScript',
-      courseId: 'CRS-002',
-      date: '2023-06-12',
-      status: 'present',
-      arrivalTime: '09:45 AM'
+  const baseUrl = process.env.REACT_APP_API_URL
+  const [activeTab, setActiveTab] = useState("overview")
+  const [selectedCourse, setSelectedCourse] = useState("all")
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [courses, setCourses] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState({
+    presentRate: 0,
+    absentRate: 0,
+    lateRate: 0,
+    excusedRate: 0,
+    present: 0,
+    absent: 0,
+    late: 0,
+    excused: 0,
+  })
+
+  useEffect(() => {
+    fetchCourses()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCourse !== "all") {
+      fetchAttendance(selectedCourse, selectedDate)
     }
-  ];
-  
-  // Calculate attendance statistics
+  }, [selectedCourse, selectedDate])
+
+  // Update the fetchCourses function to use the admin endpoint
+  const fetchCourses = async () => {
+    try {
+      setLoading(true)
+      // Use the admin endpoint for courses
+      const response = await axios.get(`${baseUrl}/api/courses/admin/all`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+       
+      // Add an "all" option at the beginning
+      const allCoursesOption = {
+        id: "all",
+        name: "All Courses",
+        stats: { presentRate: 0, absentRate: 0, lateRate: 0, overall: 0 },
+      }
+      setCourses([
+        allCoursesOption,
+        ...response.data.courses.map((course) => ({
+          id: course._id,
+          name: course.courseName,
+          stats: { presentRate: 0, absentRate: 0, lateRate: 0, overall: 0 },
+        })),
+      ])
+    } catch (error) {
+      console.error("Error fetching courses:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Update the fetchAttendance function to handle admin-specific data
+  const fetchAttendance = async (courseId, date) => {
+    try {
+      setLoading(true)
+
+      // For admin, first get all attendance records
+      const response = await axios.get(`${baseUrl}/api/attendance/admin/all`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+
+      const allRecords = response.data.attendance_records || []
+
+      // Filter records by course and date
+      const formattedDate = new Date(date).toISOString().split("T")[0]
+      const filteredRecords = allRecords.filter((record) => {
+        return record.course_id === courseId && record.date && record.date.includes(formattedDate)
+      })
+
+      setAttendanceRecords(filteredRecords)
+
+      // Calculate statistics
+      calculateStats(filteredRecords)
+
+      // Update course stats
+      updateCourseStats(courseId, filteredRecords)
+    } catch (error) {
+      console.error("Error fetching attendance:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const calculateStats = (records) => {
-    const filteredRecords = records.filter(record => 
-      (selectedCourse === 'all' || record.courseId === selectedCourse)
-    );
-    
-    const total = filteredRecords.length;
-    const present = filteredRecords.filter(r => r.status === 'present').length;
-    const absent = filteredRecords.filter(r => r.status === 'absent').length;
-    const late = filteredRecords.filter(r => r.status === 'late').length;
-    const excused = filteredRecords.filter(r => r.status === 'excused').length;
-    
-    return {
-      total,
+    const total = records.length
+    if (total === 0) {
+      setStats({
+        presentRate: 0,
+        absentRate: 0,
+        lateRate: 0,
+        excusedRate: 0,
+        present: 0,
+        absent: 0,
+        late: 0,
+        excused: 0,
+      })
+      return
+    }
+
+    const present = records.filter((record) => record.status === "Present").length
+    const absent = records.filter((record) => record.status === "Absent").length
+    const late = records.filter((record) => record.status === "Late").length
+    const excused = records.filter((record) => record.status === "Excused").length
+
+    setStats({
+      presentRate: Math.round((present / total) * 100),
+      absentRate: Math.round((absent / total) * 100),
+      lateRate: Math.round((late / total) * 100),
+      excusedRate: Math.round((excused / total) * 100),
       present,
       absent,
       late,
       excused,
-      presentRate: total > 0 ? Math.round((present / total) * 100) : 0,
-      absentRate: total > 0 ? Math.round((absent / total) * 100) : 0,
-      lateRate: total > 0 ? Math.round((late / total) * 100) : 0,
-      excusedRate: total > 0 ? Math.round((excused / total) * 100) : 0
-    };
-  };
-  
-  // Get filtered records based on search term and selected course
-  const filteredRecords = attendanceRecords.filter(record => {
-    const matchesCourse = selectedCourse === 'all' || record.courseId === selectedCourse;
-    const matchesSearch = 
-      record.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.course.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCourse && matchesSearch;
-  });
-  
-  // Calculate stats for the filtered records
-  const stats = calculateStats(attendanceRecords);
-  
-  // Status icon components
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'present':
-        return <FiCheckCircle className="text-green-500" />;
-      case 'absent':
-        return <FiXCircle className="text-red-500" />;
-      case 'late':
-        return <FiClock className="text-yellow-500" />;
-      case 'excused':
-        return <FiAlertCircle className="text-blue-500" />;
-      default:
-        return null;
+    })
+  }
+
+  const updateCourseStats = (courseId, records) => {
+    const total = records.length
+    if (total === 0) return
+
+    const present = records.filter((record) => record.status === "Present").length
+    const absent = records.filter((record) => record.status === "Absent").length
+    const late = records.filter((record) => record.status === "Late").length
+
+    const presentRate = Math.round((present / total) * 100)
+    const absentRate = Math.round((absent / total) * 100)
+    const lateRate = Math.round((late / total) * 100)
+    const overall = presentRate // Using present rate as overall attendance
+
+    setCourses((prevCourses) =>
+      prevCourses.map((course) =>
+        course.id === courseId ? { ...course, stats: { presentRate, absentRate, lateRate, overall } } : course,
+      ),
+    )
+  }
+
+  // Update the fetchAllCoursesAttendance function for admin
+  const fetchAllCoursesAttendance = async () => {
+    try {
+      setLoading(true)
+
+      // Get all attendance records for admin
+      const response = await axios.get(`${baseUrl}/api/attendance/admin/all`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+
+      const allRecords = response.data.attendance_records || []
+
+      // Set all records for display when "All Courses" is selected
+      setAttendanceRecords(allRecords)
+
+      // Calculate overall statistics
+      calculateStats(allRecords)
+
+      // Process stats for each course
+      const courseMap = new Map()
+
+      // Group records by course
+      allRecords.forEach((record) => {
+        if (!courseMap.has(record.course_id)) {
+          courseMap.set(record.course_id, [])
+        }
+        courseMap.get(record.course_id).push(record)
+      })
+
+      // Update course stats
+      const updatedCourses = courses.map((course) => {
+        if (course.id === "all") return course
+
+        const courseRecords = courseMap.get(course.id) || []
+        const total = courseRecords.length
+
+        if (total === 0) return course
+
+        const present = courseRecords.filter((record) => record.status === "Present").length
+        const absent = courseRecords.filter((record) => record.status === "Absent").length
+        const late = courseRecords.filter((record) => record.status === "Late").length
+
+        const presentRate = Math.round((present / total) * 100)
+        const absentRate = Math.round((absent / total) * 100)
+        const lateRate = Math.round((late / total) * 100)
+        const overall = presentRate
+
+        return {
+          ...course,
+          stats: { presentRate, absentRate, lateRate, overall },
+        }
+      })
+
+      setCourses(updatedCourses)
+    } catch (error) {
+      console.error("Error fetching all courses attendance:", error)
+    } finally {
+      setLoading(false)
     }
-  };
-  
-  // Handler functions
+  }
+
+  useEffect(() => {
+    if (selectedCourse === "all") {
+      fetchAllCoursesAttendance()
+    }
+  }, [selectedCourse])
+
+  const filteredRecords = attendanceRecords.filter((record) => {
+    if (!searchTerm) return true
+
+    const searchLower = searchTerm.toLowerCase()
+    return (
+      (record.student_name && record.student_name.toLowerCase().includes(searchLower)) ||
+      (record.course_name && record.course_name.toLowerCase().includes(searchLower))
+    )
+  })
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "Present":
+        return <FiCheckCircle className="text-green-500" />
+      case "Absent":
+        return <FiXCircle className="text-red-500" />
+      case "Late":
+        return <FiClock className="text-yellow-500" />
+      case "Excused":
+        return <FiAlertCircle className="text-blue-500" />
+      default:
+        return null
+    }
+  }
+
   const handleExportData = () => {
-    alert('Export attendance data functionality will be implemented here');
-  };
-  
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,"
+
+    // Add headers
+    csvContent += "Student,Date,Status,Time,Note\n"
+
+    // Add data rows
+    filteredRecords.forEach((record) => {
+      const row = [
+        record.student_name || "",
+        record.date || "",
+        record.status || "",
+        record.time || "",
+        record.note || "",
+      ]
+        .map((cell) => `"${cell}"`)
+        .join(",")
+
+      csvContent += row + "\n"
+    })
+
+    // Create download link
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `attendance_${selectedCourse}_${selectedDate}.csv`)
+    document.body.appendChild(link)
+
+    // Trigger download
+    link.click()
+
+    // Clean up
+    document.body.removeChild(link)
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Attendance & Evaluations</h1>
-      
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-6">
@@ -166,7 +301,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
@@ -179,7 +314,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
@@ -192,7 +327,7 @@ const Attendance = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
@@ -206,37 +341,43 @@ const Attendance = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Main content */}
       <div className="bg-white rounded-xl shadow-sm p-6">
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
           <button
             className={`py-2 px-4 font-medium text-sm ${
-              activeTab === 'overview' ? 'text-[#19a4db] border-b-2 border-[#19a4db]' : 'text-gray-500 hover:text-gray-700'
+              activeTab === "overview"
+                ? "text-[#19a4db] border-b-2 border-[#19a4db]"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab('overview')}
+            onClick={() => setActiveTab("overview")}
           >
             Overview
           </button>
           <button
             className={`py-2 px-4 font-medium text-sm ${
-              activeTab === 'records' ? 'text-[#19a4db] border-b-2 border-[#19a4db]' : 'text-gray-500 hover:text-gray-700'
+              activeTab === "records"
+                ? "text-[#19a4db] border-b-2 border-[#19a4db]"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab('records')}
+            onClick={() => setActiveTab("records")}
           >
             Attendance Records
           </button>
           <button
             className={`py-2 px-4 font-medium text-sm ${
-              activeTab === 'trends' ? 'text-[#19a4db] border-b-2 border-[#19a4db]' : 'text-gray-500 hover:text-gray-700'
+              activeTab === "trends"
+                ? "text-[#19a4db] border-b-2 border-[#19a4db]"
+                : "text-gray-500 hover:text-gray-700"
             }`}
-            onClick={() => setActiveTab('trends')}
+            onClick={() => setActiveTab("trends")}
           >
             Attendance Trends
           </button>
         </div>
-        
+
         {/* Filter controls */}
         <div className="flex flex-wrap items-center justify-between mb-6 gap-3">
           <div className="flex items-center space-x-3">
@@ -257,8 +398,10 @@ const Attendance = () => {
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
             >
-              {courses.map(course => (
-                <option key={course.id} value={course.id}>{course.name}</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name}
+                </option>
               ))}
             </select>
             <input
@@ -271,14 +414,15 @@ const Attendance = () => {
           <button
             onClick={handleExportData}
             className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+            disabled={filteredRecords.length === 0}
           >
             <FiDownload className="inline-block mr-2" />
             Export
           </button>
         </div>
-        
+
         {/* Overview tab content */}
-        {activeTab === 'overview' && (
+        {activeTab === "overview" && (
           <div>
             <div className="mb-6">
               <h3 className="text-lg font-medium text-gray-800 mb-4">Class Attendance Summary</h3>
@@ -290,6 +434,7 @@ const Attendance = () => {
                   <div className="bg-red-500 h-4" style={{ width: `${stats.absentRate}%` }}></div>
                 </div>
               </div>
+
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center">
                   <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
@@ -309,172 +454,161 @@ const Attendance = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <h3 className="text-lg font-medium text-gray-800 mb-4">Attendance by Course</h3>
               <div className="min-w-full">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Course
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Present
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Absent
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Late
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
                         Overall
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    <tr>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        Introduction to React
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        75%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        15%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        10%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '75%' }}></div>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        Advanced JavaScript
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        85%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        10%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        5%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '85%' }}></div>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        UX/UI Design Fundamentals
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        70%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        20%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        10%
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '70%' }}></div>
-                        </div>
-                      </td>
-                    </tr>
+                    {courses
+                      .filter((course) => course.id !== "all")
+                      .map((course) => (
+                        <tr key={course.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {course.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {course.stats?.presentRate ?? 0}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {course.stats?.absentRate ?? 0}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {course.stats?.lateRate ?? 0}%
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="w-full bg-gray-200 rounded-full h-2.5">
+                              <div
+                                className="bg-green-500 h-2.5 rounded-full"
+                                style={{ width: `${course.stats?.overall ?? 0}%` }}
+                              ></div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
         )}
-        
+
         {/* Records tab content */}
-        {activeTab === 'records' && (
-          <div>
-            <div className="overflow-x-auto">
+        {activeTab === "records" && (
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="text-center py-8">
+                <p>Loading attendance records...</p>
+              </div>
+            ) : filteredRecords.length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Student
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Course
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Date
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Arrival Time
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Time
                     </th>
-                    <th scope="col" className="relative px-6 py-3">
-                      <span className="sr-only">Actions</span>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Note
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRecords.map((record) => (
-                    <tr key={record.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{record.studentName}</div>
-                        <div className="text-sm text-gray-500">{record.studentId}</div>
+                  {filteredRecords.map((record, index) => (
+                    <tr key={record._id || index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {record.student_name || "Unknown Student"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.course}
+                        {new Date(record.date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {getStatusIcon(record.status)}
-                          <span className={`ml-2 capitalize ${
-                            record.status === 'present' ? 'text-green-800' :
-                            record.status === 'absent' ? 'text-red-800' :
-                            record.status === 'late' ? 'text-yellow-800' : 'text-blue-800'
-                          }`}>
-                            {record.status}
-                          </span>
+                          <span className="ml-2">{record.status}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {record.arrivalTime || '—'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-[#19a4db] hover:text-[#1582af]">
-                          Edit
-                        </button>
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.time || "N/A"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.note || "No note"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No attendance records found. Select a course and date to view records.</p>
+              </div>
+            )}
           </div>
         )}
-        
+
         {/* Trends tab content */}
-        {activeTab === 'trends' && (
+        {activeTab === "trends" && (
           <div>
             <div className="text-center py-8">
               <div className="inline-block p-8 bg-gray-50 rounded-lg">
                 <FiPieChart className="h-16 w-16 text-gray-400 mx-auto" />
                 <h3 className="mt-4 font-medium text-gray-800">Attendance Trend Graphs</h3>
                 <p className="mt-2 text-gray-500 max-w-md">
-                  Charts and graphs showing attendance patterns over time will appear here. The data visualization is currently being developed.
+                  Charts and graphs showing attendance patterns over time will appear here. The data visualization is
+                  currently being developed.
                 </p>
               </div>
             </div>
@@ -482,7 +616,8 @@ const Attendance = () => {
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Attendance; 
+export default Attendance
+

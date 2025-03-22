@@ -1,12 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { FiMenu, FiX } from "react-icons/fi";
-
-// Import components
+import axios from "axios";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
-
-// Import subpages
 import Overview from "./dashboard/Overview";
 import Courses from "./dashboard/Courses";
 import Scheduling from "./dashboard/Scheduling";
@@ -19,14 +16,26 @@ import Settings from "./dashboard/Settings";
 
 const AdminDashboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [notifications, setNotifications] = useState([]);
   const navigate = useNavigate();
 
-  // Mock notification data
-  const notifications = [
-    { id: 1, type: 'registration', message: 'New student registration: Maya Rodriguez', time: '2 hours ago' },
-    { id: 2, type: 'course', message: 'Course "React Fundamentals" is at 90% capacity', time: '3 hours ago' },
-    { id: 3, type: 'system', message: 'System update scheduled for tonight at 2 AM', time: '5 hours ago' },
-  ];
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        const res = await axios.get("http://localhost:8000/api/notifications", {
+          withCredentials: true,
+        },{Headers: {
+          Authorization: `Bearer ${token}`,
+        }});
+        setNotifications(res.data.notifications);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -34,19 +43,13 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header Component */}
       <Header 
         toggleSidebar={toggleSidebar} 
         isSidebarOpen={isSidebarOpen} 
         notifications={notifications} 
       />
-      
-      {/* Add padding to account for fixed header */}
       <div className="flex flex-1 pt-16">
-        {/* Sidebar Component */}
         <Sidebar isSidebarOpen={isSidebarOpen} navigate={navigate} />
-        
-        {/* Main content */}
         <main className="flex-1 overflow-auto bg-gray-50 focus:outline-none">
           <div className="py-6 px-4 sm:px-6 lg:px-8">
             <Routes>
@@ -67,4 +70,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard; 
+export default AdminDashboard;

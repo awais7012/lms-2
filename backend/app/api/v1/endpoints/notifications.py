@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Body
 from app.models.user import User
 from app.models.notification import Notification, NotificationCreate
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_current_superuser
 from app.db.mongodb import db
 from bson import ObjectId
 import logging
@@ -40,6 +40,39 @@ async def get_notifications(current_user: User = Depends(get_current_user)) -> A
         "notifications": notifications,
         "unread_count": unread_count
     }
+
+@router.post("/create", response_model=dict)
+async def create_notification(
+    title: str = Body(..., embed=True),
+    message: str = Body(..., embed=True),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Create a new notification for all users.
+    """
+    notification_data = {
+        "title": title,
+        "message": message,
+        "sender_id": str(current_user.id),
+        "created_at": datetime.utcnow(),
+        "read": False  # Default to unread
+    }
+
+    # Fetch all users' IDs
+    users_cursor = db.users.find({}, {"_id": 1})
+    user_ids = [user["_id"] async for user in users_cursor]
+
+    if not user_ids:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No users found")
+
+    # Insert notifications for all users
+    notifications = [
+        {**notification_data, "recipient_id": user_id} for user_id in user_ids
+    ]
+
+    await db.notifications.insert_many(notifications)
+
+    return {"message": "Notification sent to all users"}
 
 @router.post("/mark-read/{notification_id}", response_model=dict)
 async def mark_notification_read(

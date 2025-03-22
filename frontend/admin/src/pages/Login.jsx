@@ -15,19 +15,15 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      toast.error("Please enter both email and password");
-      return;
-    }
-
-    setLoading(true);
     try {
+      setLoading(true);
+      // Call the login function from AuthContext
       await login(email, password);
       toast.success("Login successful!");
-      setTimeout(() => {
-        window.location.href = "/dashboard"; // Navigate to dashboard after login
-      }, 1000);
+      // Optionally, redirect the user after successful login:
+      window.location.href = "/dashboard";
     } catch (error) {
+      console.error("Login error:", error);
       toast.error("Invalid credentials or server error");
     } finally {
       setLoading(false);
@@ -65,7 +61,7 @@ const Login = () => {
               Access the e-learning platform controls
             </p>
           </div>
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <div className="relative group">
               <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl group-hover:text-[#19a4db] transition-colors duration-200" />
               <input
@@ -100,8 +96,7 @@ const Login = () => {
               </button>
             </div>
             <button
-              type="button"
-              onClick={handleLogin}
+              type="submit"
               disabled={loading}
               className={`w-full py-4 px-6 ${
                 loading

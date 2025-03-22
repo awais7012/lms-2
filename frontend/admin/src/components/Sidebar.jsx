@@ -61,7 +61,7 @@ const Sidebar = ({ isSidebarOpen, navigate }) => {
             Course Management
           </Link>
 
-          <Link
+          {/* <Link
             to="/dashboard/scheduling"
             className={`flex items-center px-4 py-3 text-sm rounded-lg ${
               isActive("/scheduling")
@@ -71,7 +71,7 @@ const Sidebar = ({ isSidebarOpen, navigate }) => {
           >
             <FiCalendar className="mr-3 h-5 w-5" />
             Scheduling & Planning
-          </Link>
+          </Link> */}
 
           <Link
             to="/dashboard/students"

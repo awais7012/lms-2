@@ -643,7 +643,64 @@ async def get_course_students(
     
     return {"students": students}
 
-@router.get("/admin", response_model=dict)
+@router.get("/{course_id}", response_model=dict)
+async def get_course_details(
+    course_id: str,
+    current_user: User = Depends(get_current_superuser)
+) -> Any:
+    # Check if course exists and belongs to the teacher
+    course = await db.courses.find_one({
+        "_id": ObjectId(course_id)
+    })
+    
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found or you don't have permission"
+        )
+    
+    # Get modules and lessons
+    modules = []
+    modules_cursor = db.modules.find({"course_id": ObjectId(course_id)}).sort("order", 1)
+    
+    async for module in modules_cursor:
+        module_id = module["_id"]
+        module["_id"] = str(module_id)
+        module["course_id"] = str(module["course_id"])
+        
+        # Get lessons for this module
+        lessons = []
+        lessons_cursor = db.lessons.find({"module_id": module_id}).sort("order", 1)
+        
+        async for lesson in lessons_cursor:
+            lesson["_id"] = str(lesson["_id"])
+            lesson["module_id"] = str(lesson["module_id"])
+            lessons.append(lesson)
+        
+        module["lessons"] = lessons
+        modules.append(module)
+    
+    # Get materials
+    materials = []
+    materials_cursor = db.materials.find({"course_id": ObjectId(course_id)})
+    
+    async for material in materials_cursor:
+        material["_id"] = str(material["_id"])
+        material["course_id"] = str(material["course_id"])
+        if "module_id" in material and material["module_id"]:
+            material["module_id"] = str(material["module_id"])
+        materials.append(material)
+    
+    # Format course data
+    course["_id"] = str(course["_id"])
+    course["teacher_id"] = str(course["teacher_id"])
+    course["modules"] = modules
+    course["materials"] = materials
+    
+    return {"course": course}
+
+
+@router.get("/admin/all", response_model=dict)
 async def get_cources(
     current_user: User = Depends(get_current_superuser)
 ) -> Any:

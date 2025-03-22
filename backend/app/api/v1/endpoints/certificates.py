@@ -294,12 +294,12 @@ async def get_course_certificates(
     }
 
 @router.get("/admin", response_model=dict)
-def get_all_certificates(current_user: Any = Depends(get_current_superuser)) -> Any:
-    total = db.student_certificates.count_documents({})
+async def get_all_certificates(current_user: Any = Depends(get_current_superuser)) -> Any:
+    total = await db.student_certificates.count_documents({})
     cursor = db.student_certificates.find({})
-    
+
     certificates = []
-    for doc in cursor:
+    async for doc in cursor:  # ✅ Correct: Using async iteration
         doc["_id"] = str(doc["_id"])
         doc["certificate_id"] = str(doc["certificate_id"])
         doc["student_id"] = str(doc["student_id"])

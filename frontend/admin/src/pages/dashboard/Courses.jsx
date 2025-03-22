@@ -1,165 +1,63 @@
 import React, { useState, useEffect } from "react";
 import {
   FiSearch,
-  FiFilter,
-  FiPlus,
-  FiEdit,
   FiTrash2,
   FiUsers,
   FiCalendar,
   FiBook,
-  FiEye,
-  FiPieChart,
-  FiMoreVertical,
+  FiEye
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const Courses = () => {
+  const baseUrl = process.env.REACT_APP_API_URL;
   const [activeTab, setActiveTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterOpen, setFilterOpen] = useState(false);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Fetch courses data
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(
-          "http://localhost:5000/api/adminRoutes/courses",
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
-            },
-          }
-        );
-        setCourses(response.data.courses || []);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching courses:", error);
-        setLoading(false);
-        // If API fails, use mock data as fallback
-        setCourses(mockCourses);
-      }
-    };
-
     fetchCourses();
   }, []);
 
-  // Mock data for courses (fallback if API fails)
-  const mockCourses = [
-    {
-      _id: "CRS-001",
-      courseName: "Introduction to React",
-      category: "Web Development",
-      instructorName: "Dr. Amita Verma",
-      duration: "8 weeks",
-      enrolledStudents: 42,
-      startDate: "2023-06-15",
-      status: "active",
-      progress: 65,
-      thumbnail: "https://via.placeholder.com/150/19a4db/FFFFFF?text=React",
-    },
-    {
-      _id: "CRS-002",
-      courseName: "Advanced JavaScript",
-      category: "Programming",
-      instructorName: "Prof. Aryan Shah",
-      duration: "10 weeks",
-      enrolledStudents: 38,
-      startDate: "2023-06-10",
-      status: "active",
-      progress: 70,
-      thumbnail: "https://via.placeholder.com/150/f9ca24/000000?text=JS",
-    },
-    {
-      _id: "CRS-003",
-      courseName: "UX/UI Design Fundamentals",
-      category: "Design",
-      instructorName: "Dr. Nandini Gupta",
-      duration: "6 weeks",
-      enrolledStudents: 35,
-      startDate: "2023-07-01",
-      status: "upcoming",
-      progress: 0,
-      thumbnail: "https://via.placeholder.com/150/6c5ce7/FFFFFF?text=UX",
-    },
-    {
-      _id: "CRS-004",
-      courseName: "Python for Data Science",
-      category: "Data Science",
-      instructorName: "Dr. Sanjay Mehta",
-      duration: "12 weeks",
-      enrolledStudents: 50,
-      startDate: "2023-05-01",
-      status: "active",
-      progress: 80,
-      thumbnail: "https://via.placeholder.com/150/0984e3/FFFFFF?text=Python",
-    },
-    {
-      _id: "CRS-005",
-      courseName: "Mobile App Development with Flutter",
-      category: "Mobile Development",
-      instructorName: "Prof. Meera Kapoor",
-      duration: "10 weeks",
-      enrolledStudents: 30,
-      startDate: "2023-07-15",
-      status: "upcoming",
-      progress: 0,
-      thumbnail: "https://via.placeholder.com/150/00b894/FFFFFF?text=Flutter",
-    },
-    {
-      _id: "CRS-006",
-      courseName: "Responsive Web Design",
-      category: "Web Development",
-      instructorName: "Leela Devi",
-      duration: "5 weeks",
-      enrolledStudents: 25,
-      startDate: "2023-04-01",
-      status: "completed",
-      progress: 100,
-      thumbnail: "https://via.placeholder.com/150/fd79a8/FFFFFF?text=CSS",
-    },
-  ];
-
-  // Filter courses based on active tab and search term
-  const filteredCourses = courses
-    .filter((course) => {
-      if (activeTab === "all") return true;
-      return course.status === activeTab;
-    })
-    .filter(
-      (course) =>
-        course.courseName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.instructorName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-  // Handler functions
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${baseUrl}/api/courses/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCourses(response.data.courses || []);
+      console.log("API Response:", response.data.courses);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddCourse = () => {
-    alert("Add course functionality will be implemented here");
+  const handleDeleteCourse = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`/courses/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCourses((prev) => prev.filter((course) => course._id !== id));
+    } catch (error) {
+      console.error("Error deleting course:", error);
+    }
   };
-
-  const handleEditCourse = (id) => {
-    alert(`Edit course with ID: ${id}`);
-  };
-
-  const handleDeleteCourse = (id) => {
-    alert(`Delete course with ID: ${id}`);
-  };
-
+  const filteredCourses = courses.filter(
+    (course) =>
+      course.courseName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      course.instructorName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   const handleViewCourse = (id) => {
-    // Navigate to the course view page with the actual course ID
     navigate(`/dashboard/course/${id}`);
   };
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -224,6 +122,13 @@ const Courses = () => {
           </div>
         </div>
       </div>
+      <button
+  className="cool-button bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-none mt-5 px-4 py-2 rounded-md text-sm cursor-pointer shadow-md transition-transform transform hover:scale-105 active:scale-95"
+  onClick={() => window.open("https://developers.learndash.com/rest-api/v2/", "_blank")}
+>
+  LearnDash API
+</button>
+
 
       {/* Course Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 mt-6">
