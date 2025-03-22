@@ -2,27 +2,20 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   FiSearch,
-  FiFilter,
   FiPlusCircle,
-  FiUserPlus,
   FiEye,
   FiMail,
   FiDownload,
-  FiCalendar,
-  FiAlertCircle,
   FiUserCheck,
-  FiUserX
 } from "react-icons/fi";
 
 // Use the base URL from your .env file
 const baseUrl = process.env.REACT_APP_API_URL;
 
 const Students = () => {
-  const [activeTab, setActiveTab] = useState("pending");
   const [searchTerm, setSearchTerm] = useState("");
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -30,10 +23,7 @@ const Students = () => {
     password: ""
   });
 
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-
+  // Fetch students from the API
   const fetchStudents = async () => {
     try {
       setLoading(true);
@@ -43,15 +33,14 @@ const Students = () => {
         setLoading(false);
         return;
       }
-  
+
       const response = await axios.get(`${baseUrl}/api/users`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { role: "student" },
       });
-  
-      console.log("API Response:", response.data); // Debugging: check the data structure
-  
-      // Extract students list from `users` array
+
+      console.log("API Response:", response.data);
+      // Expecting response.data.users to be the array of students
       const data = response.data.users || [];
       setStudents(data);
     } catch (error) {
@@ -60,51 +49,33 @@ const Students = () => {
       setLoading(false);
     }
   };
-  
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-  
-  useEffect(() => {
-    console.log("Students List Updated:", students);
-  }, [students]);
-  
-  
+
   // Fetch students on component mount
   useEffect(() => {
     fetchStudents();
   }, []);
-  
-  // Log updates to students list
-  useEffect(() => {
-    console.log("Students List Updated:", students);
-  }, [students]);
-  
-  useEffect(() => {
-    fetchStudents();
-  }, []);
-  
-  useEffect(() => {
-    console.log("Students List Updated:", students);
-  }, [students]);
-    
 
-  // Define handleSearch here so it's available in the component's scope.
+  // Debug: Log updates to students list
+  useEffect(() => {
+    console.log("Students List Updated:", students);
+  }, [students]);
+
+  // Search handler
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
 
-  // Toggle the "Add Student" form
+  // Toggle the Add Student form
   const toggleAddForm = () => {
     setShowAddForm(!showAddForm);
   };
 
-  // Handle input changes for the add student form
+  // Handle input change in add student form
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Handle form submission for adding a student
+  // Handle Add Student form submission
   const handleAddStudent = async (e) => {
     e.preventDefault();
     try {
@@ -112,7 +83,7 @@ const Students = () => {
         email: formData.email,
         username: formData.username,
         role: "student",
-        is_active: true,
+        is_active: false, // New students are pending approval by default
         password: formData.password
       };
       await axios.post(`${baseUrl}/api/auth/signup`, payload, {
@@ -128,18 +99,19 @@ const Students = () => {
     }
   };
 
-  // Dummy handlers for Approve, Reject, View, Contact
+  // Approve student handler: updates is_active to true
   const handleApprove = async (studentId) => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `${baseUrl}/students/${studentId}/status`,
-        { action: "approve" },
+        `${baseUrl}/api/users/${studentId}`,
+        { is_active: true },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      // Update the local state to mark the student as approved
       setStudents((prev) =>
         prev.map((student) =>
-          student._id === studentId ? { ...student, isApproved: true } : student
+          student.id === studentId ? { ...student, is_active: true } : student
         )
       );
     } catch (error) {
@@ -147,17 +119,18 @@ const Students = () => {
     }
   };
 
+  // Dummy handlers for Reject, View, and Contact actions
   const handleReject = async (studentId) => {
     try {
       const token = localStorage.getItem("token");
       await axios.put(
-        `${baseUrl}/students/${studentId}/status`,
-        { action: "reject" },
+        `${baseUrl}/api/users/${studentId}`,
+        { is_active: false },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setStudents((prev) =>
         prev.map((student) =>
-          student._id === studentId ? { ...student, isRejected: true } : student
+          student.id === studentId ? { ...student, is_active: false } : student
         )
       );
     } catch (error) {
@@ -173,22 +146,14 @@ const Students = () => {
     console.log(`Contacting student at ${studentEmail}`);
   };
 
+  // Filter students based on search term
   const filteredStudents = students.filter((s) =>
     s.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Helper functions for statistics
-  const getPendingStudents = () => {
-    return students.filter((s) => !s.isApproved && !s.isRejected);
-  };
-
-  const getApprovedStudents = () => {
-    return students.filter((s) => !s.isApproved);
-  };
-
-  const getRejectedStudents = () => {
-    return students.filter((s) => s.isRejected);
-  };
+  // Separate the students into approved and pending groups
+  const approvedStudents = filteredStudents.filter((s) => s.is_active === true);
+  const pendingStudents = filteredStudents.filter((s) => s.is_active === false);
 
   return (
     <div>
@@ -245,10 +210,7 @@ const Students = () => {
             />
           </div>
           <div className="flex space-x-2">
-            <button
-              type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md"
-            >
+            <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md">
               Submit
             </button>
             <button
@@ -261,81 +223,109 @@ const Students = () => {
           </div>
         </form>
       )}
-      <div className="flex">
-          <div className="bg-white rounded-xl shadow-sm p-6 [width:100%]">
-          <div className="flex justify-between items-start">
-          <div className="p-3 rounded-lg">
-              <p className="text-gray-500 text-sm font-medium mt-2">
-                Number of Students
-              </p>
-            </div>
-            <div className="p-3 rounded-lg">
-            <p className="text-gray-500 text-sm font-medium mt-2">
-                {getApprovedStudents().length}
-              </p>
-            </div>
-            <div className="p-3 rounded-lg">
-            <p className="text-green-500 text-xs font-medium mt-2">
-                Active enrollments
-              </p>
-            </div>
-            <div className="p-3 rounded-lg">
-              <FiUserCheck className="h-6 w-6 text-green-500" />
-            </div>
-          </div>
+
+      {/* Search Bar */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="relative">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search students..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#19a4db]"
+          />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm mb-6 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[#19a4db]"
-            />
-          </div>
-        </div>
-        {loading ? (
-          <div>Loading students...</div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {filteredStudents.map((student) => (
-              <div key={student._id} className="py-4 flex items-center justify-between">
-                <div className="flex items-center">
-                  <img
-                    src={student.photo || "https://via.placeholder.com/150"}
-                    alt={student.username}
-                    className="w-10 h-10 rounded-full mr-4"
-                  />
-                  <div>
-                    <p className="font-medium text-gray-800">{student.username}</p>
-                    <p className="text-gray-600 text-sm">{student.email}</p>
+      {/* Display sections */}
+      {loading ? (
+        <div>Loading students...</div>
+      ) : (
+        <>
+          {/* Pending Students Section */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-3">Pending Students</h2>
+            {pendingStudents.length === 0 ? (
+              <p className="text-gray-500">No pending students.</p>
+            ) : (
+              pendingStudents.map((student) => (
+                <div key={student.id} className="py-4 flex items-center justify-between border-b">
+                  <div className="flex items-center">
+                    <img
+                      src={student.photo || "https://via.placeholder.com/150"}
+                      alt={student.username}
+                      className="w-10 h-10 rounded-full mr-4"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-800">{student.username}</p>
+                      <p className="text-gray-600 text-sm">{student.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleView(student.id)}
+                      className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      <FiEye className="inline mr-1" /> View
+                    </button>
+                    <button
+                      onClick={() => handleContact(student.email)}
+                      className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      <FiMail className="inline mr-1" /> Contact
+                    </button>
+                    <button
+                      onClick={() => handleApprove(student.id)}
+                      className="px-3 py-1 border border-gray-200 rounded-md text-sm text-green-600 hover:bg-green-50"
+                    >
+                      <FiUserCheck className="inline mr-1" /> Approve
+                    </button>
                   </div>
                 </div>
-                <div>
-                  <button
-                    onClick={() => handleView(student._id)}
-                    className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50"
-                  >
-                    <FiEye className="inline mr-1" /> View
-                  </button>
-                  <button
-                    onClick={() => handleContact(student.email)}
-                    className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50 ml-2"
-                  >
-                    <FiMail className="inline mr-1" /> Contact
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        )}
-      </div>
 
+          {/* Approved Students Section */}
+          <div>
+            <h2 className="text-xl font-semibold mb-3">Approved Students</h2>
+            {approvedStudents.length === 0 ? (
+              <p className="text-gray-500">No approved students.</p>
+            ) : (
+              approvedStudents.map((student) => (
+                <div key={student.id} className="py-4 flex items-center justify-between border-b">
+                  <div className="flex items-center">
+                    <img
+                      src={student.photo || "https://via.placeholder.com/150"}
+                      alt={student.username}
+                      className="w-10 h-10 rounded-full mr-4"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-800">{student.username}</p>
+                      <p className="text-gray-600 text-sm">{student.email}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => handleView(student.id)}
+                      className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                      <FiEye className="inline mr-1" /> View
+                    </button>
+                    <button
+                      onClick={() => handleContact(student.email)}
+                      className="px-3 py-1 border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50 ml-2"
+                    >
+                      <FiMail className="inline mr-1" /> Contact
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 };

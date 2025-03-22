@@ -29,33 +29,40 @@ const Overview = () => {
         headers: { Authorization: `Bearer ${token}` },
       };
 
-      // Use Promise.allSettled so that if one API call fails, others still return.
-      const results = await Promise.allSettled([
+      // Fetch students and teachers concurrently
+      const [studentsResult, teachersResult] = await Promise.allSettled([
         axios.get(`${baseUrl}/api/users`, { ...config, params: { role: 'student' } }),
         axios.get(`${baseUrl}/api/users`, { ...config, params: { role: 'teacher' } }),
-        axios.get(`${baseUrl}/api/courses/admin/all`, config),
-        axios.get(`${baseUrl}/api/dashboard/registrations`, config),
-        axios.get(`${baseUrl}/api/dashboard/schedule`, config),
       ]);
-      console.log(results)
+      
+      // Substitute with empty arrays if a call failed
+      const studentsRes = studentsResult.status === 'fulfilled' ? studentsResult.value : { data: { users: [] } };
+      const teachersRes = teachersResult.status === 'fulfilled' ? teachersResult.value : { data: { users: [] } };
 
-      // For any call that failed, we substitute with a default empty response.
-      const studentsRes = results[0].status === 'fulfilled' ? results[0].value : { data: [] };
-      const teachersRes = results[1].status === 'fulfilled' ? results[1].value : { data: [] };
-      const coursesRes = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
-      const regsRes = results[3].status === 'fulfilled' ? results[3].value : { data: { registrations: [] } };
-      const scheduleRes = results[4].status === 'fulfilled' ? results[4].value : { data: { schedule: [] } };
-
+      const totalStudents = Array.isArray(studentsRes.data.users) ? studentsRes.data.users.length : 0;
+      const totalTeachers = Array.isArray(teachersRes.data.users) ? teachersRes.data.users.length : 0;
+      
+      const pendingStudents = (studentsRes.data.users || []).filter(user => !user.is_active);
+      const pendingTeachers = (teachersRes.data.users || []).filter(user => !user.is_active);
+      const pendingApprovals = pendingStudents.length + pendingTeachers.length;
+      
       const statsData = {
-        totalStudents: Array.isArray(studentsRes.data) ? studentsRes.data.length : 0,
-        totalTeachers: Array.isArray(teachersRes.data) ? teachersRes.data.length : 0,
-        totalCourses: Array.isArray(coursesRes.data) ? coursesRes.data.length : 0,
-        // You can add additional properties if your regsRes or scheduleRes contain more stats.
+        totalStudents,
+        totalTeachers,
+        pendingApprovals,
+        // For upcomingClasses and certificatesIssued, we leave them undefined or set defaults
+        upcomingClasses: stats && stats.upcomingClasses ? stats.upcomingClasses : 0,
+        todayClassesInfo: stats && stats.todayClassesInfo ? stats.todayClassesInfo : '',
+        certificatesIssued: stats && stats.certificatesIssued ? stats.certificatesIssued : 0,
+        certificatesIssuedChange: stats && stats.certificatesIssuedChange ? stats.certificatesIssuedChange : '',
       };
 
       setStats(statsData);
-      setRecentRegistrations(regsRes.data.registrations || []);
-      setUpcomingSchedule(scheduleRes.data.schedule || []);
+      
+      // If you have registrations and schedule APIs later, update these here.
+      setRecentRegistrations([]); // default empty
+      setUpcomingSchedule([]);    // default empty
+
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -74,6 +81,7 @@ const Overview = () => {
       </div>
     );
   }
+  
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -101,31 +109,9 @@ const Overview = () => {
             <div>
               <p className="text-gray-500 text-sm font-medium mb-1">Total Students</p>
               <h3 className="text-3xl font-bold text-gray-800">{stats.totalStudents}</h3>
-              {stats.totalStudentsChange && (
-                <p className="text-green-500 text-xs font-medium mt-2">
-                  {stats.totalStudentsChange}
-                </p>
-              )}
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
               <FiUsers className="h-6 w-6 text-[#19a4db]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-500 text-sm font-medium mb-1">Total Courses</p>
-              <h3 className="text-3xl font-bold text-gray-800">{stats.totalCourses}</h3>
-              {stats.activeCoursesChange && (
-                <p className="text-green-500 text-xs font-medium mt-2">
-                  {stats.activeCoursesChange}
-                </p>
-              )}
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <FiBookOpen className="h-6 w-6 text-[#19a4db]" />
             </div>
           </div>
         </div>
@@ -135,11 +121,6 @@ const Overview = () => {
             <div>
               <p className="text-gray-500 text-sm font-medium mb-1">Total Teachers</p>
               <h3 className="text-3xl font-bold text-gray-800">{stats.totalTeachers}</h3>
-              {stats.totalTeachersChange && (
-                <p className="text-green-500 text-xs font-medium mt-2">
-                  {stats.totalTeachersChange}
-                </p>
-              )}
             </div>
             <div className="p-3 bg-blue-50 rounded-lg">
               <FiUsers className="h-6 w-6 text-[#19a4db]" />
@@ -147,24 +128,20 @@ const Overview = () => {
           </div>
         </div>
         
-        {/* <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 text-sm font-medium mb-1">Pending Approvals</p>
               <h3 className="text-3xl font-bold text-gray-800">{stats.pendingApprovals}</h3>
-              {stats.pendingApprovalsInfo && (
-                <p className="text-yellow-500 text-xs font-medium mt-2">
-                  {stats.pendingApprovalsInfo}
-                </p>
-              )}
             </div>
             <div className="p-3 bg-yellow-50 rounded-lg">
               <FiBell className="h-6 w-6 text-yellow-500" />
             </div>
           </div>
-        </div> */}
+        </div>
         
-        {/* <div className="bg-white rounded-xl shadow-sm p-6">
+        { /* Upcoming Classes Section – left as is */ }
+        {/* { <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 text-sm font-medium mb-1">Today's Classes</p>
@@ -179,8 +156,9 @@ const Overview = () => {
               <FiCalendar className="h-6 w-6 text-[#19a4db]" />
             </div>
           </div>
-        </div> */}
+        </div> } */}
         
+        { /* Certificates Issued Section – left as is */ }
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-start">
             <div>
@@ -296,23 +274,7 @@ const Overview = () => {
             <h2 className="font-semibold text-lg text-gray-800">System Notifications</h2>
           </div>
           <div className="p-4">
-            {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {notifications.map((notification) => (
-                <div 
-                  key={notification.id} 
-                  className={`border-l-4 p-4 rounded-r-lg ${
-                    notification.type === 'update'
-                      ? 'border-yellow-400 bg-yellow-50'
-                      : notification.type === 'feature'
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-green-400 bg-green-50'
-                  }`}
-                >
-                  <h3 className="font-medium text-gray-800">{notification.title}</h3>
-                  <p className="text-sm mt-1 text-gray-700">{notification.message}</p>
-                </div>
-              ))}
-            </div> */}
+            { /* Notifications section remains as is */ }
           </div>
         </div>
       </div>
