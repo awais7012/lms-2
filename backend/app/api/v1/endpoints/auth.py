@@ -1,6 +1,6 @@
 from datetime import timedelta,datetime
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Response, Cookie, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
 from app.core.security import (
@@ -22,6 +22,86 @@ from pydantic import ValidationError,BaseModel
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+
+#google setup
+from authlib.integrations.starlette_client import OAuth
+import os
+oauth = OAuth()
+oauth.register(
+    name="google",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    authorize_url="https://accounts.google.com/o/oauth2/auth",
+    access_token_url="https://oauth2.googleapis.com/token",
+    client_kwargs={"scope": "openid email profile"},
+)
+@router.get("/google/login")
+async def google_login(request: Request):
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+@router.get("/google/callback")
+async def google_callback(request: Request):
+    try:
+        # Get token from Google
+        token = await oauth.google.authorize_access_token(request)
+        user_info = await oauth.google.parse_id_token(request, token)
+        
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Google authentication failed")
+
+        email = user_info["email"]
+        existing_user = await db.users.find_one({"email": email})
+
+        if not existing_user:
+            # Determine user role dynamically (example logic)
+            role = "student"
+            # Create new user
+            new_user = {
+                "email": email,
+                "username": user_info["name"],
+                "role": role,
+                "hashed_password": None,  # No password for OAuth users
+                "is_active": True,
+                "is_superuser": False,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            result = await db.users.insert_one(new_user)
+            user_id = str(result.inserted_id)
+
+            # Create user profile based on role
+            profile_data = {
+                "user_id": user_id,
+                "full_name": user_info["name"]
+            }
+            await db.student_profiles.insert_one(profile_data)
+
+        else:
+            # User exists → log them in
+            user_id = str(existing_user["_id"])
+
+        # Generate JWT token
+        access_token = create_access_token(subject=user_id)
+        user_data = {
+                "id": user_id,
+                "email": email,
+                "username": user_info["name"],
+                "role": existing_user["role"] if existing_user else role
+            }
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_data,
+            "role":user_data["role"],
+            "is_superuser": False
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error: {str(e)}")
+
+
 
 @router.post("/signup")
 async def signup(user_in: UserCreate) -> Any:
@@ -45,7 +125,7 @@ async def signup(user_in: UserCreate) -> Any:
         "username": user_data["username"],
         "role": user_data["role"],
         "hashed_password": hashed_password,
-        "is_active": True,
+        "is_active": False,
         "is_superuser": False
     }
     
@@ -119,6 +199,7 @@ async def login(response: Response,form_data: OAuth2PasswordRequestForm = Depend
         "token_type": "bearer",
         "user": user_data,
         "role":user["role"],
+        "is_active": user["is_active"],
         "is_superuser": user["is_superuser"]
     }
 

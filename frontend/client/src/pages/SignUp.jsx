@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/logo.png";
 import { FiUser, FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
@@ -7,10 +7,14 @@ import { FcGoogle } from "react-icons/fc";
 import { useAuth } from "../context/AuthContext";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
 
 const SignUp = () => {
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  
+  const { login } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -60,13 +64,58 @@ const SignUp = () => {
     }
   };
 
-  const handleGoogleSignup = () => {
-    // Store the current role in localStorage before redirecting
-    localStorage.setItem("pendingGoogleRole", formData.role);
-
-    // Redirect to the backend Google OAuth endpoint with role as query parameter
-    window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google?role=${formData.role}`;
+  const handleGoogleSignup = async () => {
+    try {
+  
+      toast.info("Redirecting to Google login...");
+      console.log("Logging in with Google...");
+  
+      // Step 1: Redirect to FastAPI Google login
+      window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google/login`;
+  
+      // Step 2: Wait for redirect & token in URL (polling method)
+      const checkToken = async () => {
+        while (true) {
+          const params = new URLSearchParams(window.location.search);
+          const accessToken = params.get("access_token");
+  
+          if (accessToken) {
+            console.log("Google Auth Token Received:", accessToken);
+  
+            // Step 3: Fetch user details
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/user`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+  
+            const userData = res.data.user;
+  
+            // Step 4: Call `login` function from AuthContext
+            await login({
+              email: userData.email,
+              password: null, // No password for Google users
+              role: userData.role,
+            });
+  
+            toast.success("Google login successful!");
+  
+            // Step 5: Redirect based on role
+            navigate(userData.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard");
+  
+            break; // Exit loop after successful login
+          }
+  
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Poll every 500ms
+        }
+      };
+  
+      checkToken();
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Google login failed. Please try again.");
+    }
   };
+
+  
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);

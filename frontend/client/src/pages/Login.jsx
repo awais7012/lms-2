@@ -6,6 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Logo from "../assets/logo.png";
 import { FiUser, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { FcGoogle } from "react-icons/fc";
+import axios from "axios";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -72,10 +73,55 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    toast.info("Redirecting to Google login...");
-    console.log("Logging in with Google...");
-    navigate("/student-dashboard");
+  const handleGoogleLogin = async () => {
+    try {
+  
+      toast.info("Redirecting to Google login...");
+      console.log("Logging in with Google...");
+  
+      // Step 1: Redirect to FastAPI Google login
+      window.location.href = `${process.env.REACT_APP_API_URL}/api/auth/google/login`;
+  
+      // Step 2: Wait for redirect & token in URL (polling method)
+      const checkToken = async () => {
+        while (true) {
+          const params = new URLSearchParams(window.location.search);
+          const accessToken = params.get("access_token");
+  
+          if (accessToken) {
+            console.log("Google Auth Token Received:", accessToken);
+  
+            // Step 3: Fetch user details
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/user`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+  
+            const userData = res.data.user;
+  
+            // Step 4: Call `login` function from AuthContext
+            await login({
+              email: userData.email,
+              password: null, // No password for Google users
+              role: userData.role,
+            });
+  
+            toast.success("Google login successful!");
+  
+            // Step 5: Redirect based on role
+            navigate(userData.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard");
+  
+            break; // Exit loop after successful login
+          }
+  
+          await new Promise((resolve) => setTimeout(resolve, 500)); // Poll every 500ms
+        }
+      };
+  
+      checkToken();
+    } catch (error) {
+      console.error("Google login error:", error);
+      toast.error("Google login failed. Please try again.");
+    }
   };
 
   const togglePasswordVisibility = () => {

@@ -88,7 +88,13 @@ export const AuthProvider = ({ children }) => {
       const token = res.data.access_token; // ✅ Correct token key
       const userData = res.data.user; // ✅ Extract user data
       const userrole = userData.role; // ✅ Extract role from user object
-  
+      const isApproved = res.is_active; // ✅ Extract approved from user object
+      console.log(isApproved);
+
+      if (!isApproved) {
+        throw new Error("Not approved yet");
+        return; // Stop login process
+      }
       // Store token & user details
       setAccessToken(token);
       setUserName(userData.username);

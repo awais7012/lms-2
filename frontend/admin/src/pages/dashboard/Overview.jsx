@@ -37,6 +37,7 @@ const Overview = () => {
         axios.get(`${baseUrl}/api/dashboard/registrations`, config),
         axios.get(`${baseUrl}/api/dashboard/schedule`, config),
       ]);
+      console.log(results)
 
       // For any call that failed, we substitute with a default empty response.
       const studentsRes = results[0].status === 'fulfilled' ? results[0].value : { data: [] };

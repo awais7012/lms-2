@@ -6,6 +6,7 @@ from app.api.api_v1.api import api_router
 from app.db.init_db import create_first_superuser
 from fastapi.staticfiles import StaticFiles
 import os
+from starlette.middleware.sessions import SessionMiddleware
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -15,11 +16,12 @@ app = FastAPI(
 # Set up CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
