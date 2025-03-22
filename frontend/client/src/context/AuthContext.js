@@ -88,7 +88,10 @@ export const AuthProvider = ({ children }) => {
       const token = res.data.access_token; // ✅ Correct token key
       const userData = res.data.user; // ✅ Extract user data
       const userrole = userData.role; // ✅ Extract role from user object
-      const isApproved = res.is_active; // ✅ Extract approved from user object
+      const isApproved = userData.is_active === true || userData.is_active === "true";
+
+
+      // const isApproved = res.is_active; // ✅ Extract approved from user object
       console.log(isApproved);
 
       if (!isApproved) {
