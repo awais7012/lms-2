@@ -128,4 +128,4 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-This updated README should provide clear guidance for users setting up and contributing to your E-Learning LMS Platform while highlighting essential troubleshooting and dependency details.
+
